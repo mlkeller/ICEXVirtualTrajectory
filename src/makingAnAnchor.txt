@@ -1,0 +1,15 @@
+to make an anchor 
+
+create anchor 
+
+create camera
+    Camera c = Camera(loc,lookaAt,speed);
+    	get lookAt using createLookAt function in main 
+    	this also sets the pitch for the anchor 
+	c.updatePerspective(aspect, 45, zNear, 90);
+	c.setRayParameters(1,200);
+	c.createFrustum();
+
+set anchor camera to camera 
+
+anchor.getWeight(BB)

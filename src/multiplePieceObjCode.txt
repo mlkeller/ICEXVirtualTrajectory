@@ -1,0 +1,75 @@
+double *locArr = new double[126];
+
+//ballerina 
+	/*vector<tinyobj::shape_t> TOshapes;
+	vector<tinyobj::material_t> objMaterials;
+	string errStr;*/
+	//load in the mesh and make the shapes
+	/*bool rc = tinyobj::LoadObj(TOshapes, objMaterials, errStr, (RESOURCE_DIR + "ballerina.obj").c_str());
+	if (!rc) {
+		cerr << errStr << endl;
+	}
+	else {
+		//some data to keep track of where our mesh is in space
+		vec3 Gmin, Gmax;
+		Gmin = vec3(1.1754E+38F);
+		Gmax = vec3(-1.1754E+38F);
+		int j = 0;
+		for (int i = 0; i < TOshapes.size(); i++) {
+			// TODO -- Initialize each mesh
+			//1. make a shared pointer
+			std::shared_ptr<Shape> s = std::make_shared<Shape>();
+			// 2. createShape for each tiny obj shape
+			s->createShape(TOshapes[i]);
+			// 3. measure each shape to find out its AABB
+			s->measure();
+			// 4. call init on each shape to create the GPU data
+			s->init();
+			//perform some record keeping to keep track of global min and max
+			if (s->min.x < Gmin.x) {
+				Gmin.x = s->min.x;
+			}
+			if (s->min.y < Gmin.y) {
+				Gmin.y = s->min.y;
+			}
+			if (s->min.z < Gmin.z) {
+				Gmin.z = s->min.z;
+			}
+			if (s->max.x > Gmax.x) {
+				Gmax.x = s->max.x;
+			}
+			if (s->max.y > Gmax.y) {
+				Gmax.y = s->max.y;
+			}
+			if (s->max.z > Gmax.z) {
+				Gmax.z = s->max.z;
+			}
+			//Add the shape to AllShapes
+			AllShapes.push_back(s);
+			locArr[j] = s->min.x;
+		    locArr[j + 1] = s->max.x;
+			locArr[j + 2] = s->min.y;
+			locArr[j+ 3] = s->max.y;
+			locArr[j + 4] = s->min.z;
+			locArr[j + 5] = s->max.z;
+			j += 6;
+		}
+
+		//fix these based on the results of calling measure on each peice	
+		float zDiff = Gmax.z - Gmin.z;
+		float xDiff = Gmax.x - Gmin.x;
+		float yDiff = Gmax.y - Gmin.y;
+		float maxDiff = zDiff;
+		if (xDiff > maxDiff) {
+			maxDiff = xDiff;
+		}
+		if (yDiff > maxDiff) {
+			maxDiff = yDiff;
+		}
+		printf("maxDiff : %f\n", maxDiff);
+		g_trans = vec3((Gmax.x + Gmin.x) / 2, (Gmax.y + Gmin.y) / 2, (Gmax.z + Gmin.z) / 2);
+		g_scale = 1 / maxDiff;
+
+		cout << "global scale " << g_scale << endl;
+		cout << "global trans " << g_trans.x << " " << g_trans.y << " " << g_trans.z << endl;
+	}*/

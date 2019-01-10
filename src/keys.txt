@@ -1,0 +1,8 @@
+"WASD" move keys
+"B/N" toggles bounding boxes
+"K/L" toggles grid
+"O/P" toggles anchor pouint cameras 
+"E/R" starts showing anchor camera frustums 
+"T" decresases which fulcrum viewing 
+"Y" increases which fulcrum viewing 
+"H/J draws main bounding box 

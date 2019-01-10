@@ -1,0 +1,6 @@
+camRadius;
+camHeight;
+camSpeed;
+lookAt.x;
+lookAt.y;
+lookAt.z;
