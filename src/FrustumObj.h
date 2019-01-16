@@ -1,13 +1,13 @@
 #ifndef FRUSTUMOBJ_H
 #define FRUSTUMOBJ_H
 
-
+#include <glad/glad.h>
 #include <string>
 #include <fstream>
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <GL/glew.h>
+
 using namespace std;
 using namespace glm;
 

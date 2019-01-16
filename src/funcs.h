@@ -1,8 +1,9 @@
 #ifndef FUNCS_H
 #define FUNCS_H
 
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glad/glad.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "GLSL.h"

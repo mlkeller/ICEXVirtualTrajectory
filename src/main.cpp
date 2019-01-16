@@ -1,8 +1,10 @@
 /* Base code for texture mapping lab */
 /* includes three images and three meshes - Z. Wood 2016 */
+#define GLFW_INCLUDE_NONE
+
 #include <iostream>
-#define GLEW_STATIC
-#include <GL/glew.h>
+
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -650,7 +652,9 @@ void setCameras(){
 }
 
 bool inBB(vec3 loc, vec3 min, vec3 max){
-	int x,y,z =0;
+	int x = 0;
+	int y = 0;
+	int z = 0;
 	if(loc.x < max.x && loc.x > min.x){
 		x=1;
 	}
@@ -922,14 +926,13 @@ int main(int argc, char **argv)
 		glfwTerminate();
 		return -1;
 	}
+
 	
 	// Make the window's context current.
 	glfwMakeContextCurrent(window);
-	// Initialize GLEW.
-	glewExperimental = true;
-	if(glewInit() != GLEW_OK) {
-		cerr << "Failed to initialize GLEW" << endl;
-		return -1;
+
+	if (!gladLoadGL()) {
+		std::cerr << "Failed to initialize Glad" << std::endl;
 	}
 
 	glGetError();

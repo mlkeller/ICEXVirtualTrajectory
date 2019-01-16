@@ -8,13 +8,12 @@
 #ifndef __GLSL__
 #define __GLSL__
 
-#define GLEW_STATIC
-#include <GL/glew.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 // For printing out the current file and line number                         //
 ///////////////////////////////////////////////////////////////////////////////
 #include <sstream>
+#include <glad/glad.h>
 
 template <typename T>
 std::string NumberToString(T x)
