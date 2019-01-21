@@ -62,9 +62,6 @@ public:
    float weight;
    bool randomRays = false;
 
-
-
-
 	void updateSpeed(float speed){
 		camSpeed = speed;
 	}

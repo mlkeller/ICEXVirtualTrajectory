@@ -26,6 +26,7 @@
 #include "FrustumObj.h"
 #include "Plane.h"
 #include "funcs.h"
+#include "Voxel.h"
 //#include "PRMNode.h"
 //#include "BosPRMAlg.h"
 
@@ -156,9 +157,102 @@ int drawF = 0;
 
 vec3 globalBBtrans, globalBBscale;
 
-//Spatial Data Structure
-vec3 targetMin = vec3(1.1754E+38F);
-vec3 targetMax = vec3(-1.1754E+38F);
+// Spatial Data Structure
+vec3 realMin = vec3(1.1754E+38F);
+vec3 realMax = vec3(-1.1754E+38F);
+float xExtent = 0;
+float yExtent = 0;
+float zExtent = 0;
+float voxelSize = 0; // currently use max extent
+typedef vector<vector<vector<Voxel>>> SpatialDataStructure;
+SpatialDataStructure grid3D; // 3D grid of voxels, voxels contain PRM nodes
+
+void computeSpatialBB(BoundingBox targetBB)
+{
+    vec3 tempMin = realMin * 2;
+    vec3 tempMax = realMax * 2;
+
+    if (targetBB.min.x < tempMin.x)
+    {
+        tempMin.x = targetBB.min.x;
+    }
+    if (targetBB.min.y < tempMin.y)
+    {
+        tempMin.y = targetBB.min.y;
+    }
+    if (targetBB.min.z < tempMin.z)
+    {
+        tempMin.z = targetBB.min.z;
+    }
+
+    if (targetBB.max.x > tempMax.x)
+    {
+        tempMax.x = targetBB.max.x;
+    }
+    if (targetBB.max.y > tempMax.y)
+    {
+        tempMax.y = targetBB.max.y;
+    }
+    if (targetBB.max.z > tempMax.z)
+    {
+        tempMax.z = targetBB.max.z;
+    }
+
+    // Compute extents
+    xExtent = tempMax.x - tempMin.x;
+    yExtent = tempMax.y - tempMin.y;
+    zExtent = tempMax.z - tempMin.z;
+
+    // Compute real target min & max
+    realMin.x = tempMin.x - 0.5f * xExtent;
+    realMin.y = tempMin.y - 0.5f * yExtent;
+    realMin.z = tempMin.z - 0.5f * zExtent;
+
+    realMax.x = tempMax.x + 0.5f * xExtent;
+    realMax.y = tempMax.y + 0.5f * yExtent;
+    realMax.z = tempMax.z + 0.5f * zExtent;
+}
+
+float getMaxExtent()
+{
+    return std::max(std::max(xExtent, yExtent), zExtent);
+}
+
+// set up spatial data structure (3D grid of voxels)
+static void initSpatialDS(BoundingBox targetBB)
+{
+    computeSpatialBB(targetBB);
+    voxelSize = getMaxExtent();
+
+    // set x, y, and z dimensions of data structure
+    int dimX = xExtent / voxelSize;
+    int dimY = yExtent / voxelSize;
+    int dimZ = zExtent / voxelSize;
+    
+    // fill in 3D grid with voxels
+    for (int x = 0; x < dimX; x++)
+    {
+        for (int y = 0; y < dimY; y++)
+        {
+            for (int z = 0; z < dimZ; z++)
+            {
+                grid3D[x][y][z] = Voxel();
+            }
+        }
+    }
+}
+
+// can only be called after voxel size is set in initSpatialDS
+vec3 worldToIndexCoords(vec3 worldCoords)
+{
+    vec3 indexCoords = vec3(0);
+
+    indexCoords.x = std::floor((worldCoords.x - realMin.x) / voxelSize);
+    indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
+    indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
+
+    return indexCoords;
+}
 
 float avg(float num1, float num2)
 {
@@ -1106,10 +1200,10 @@ int main(int argc, char **argv)
 
 	 globalBB.setPlanes();
 
-    //make globalBB
+    //compute spatial bb
     for (int i = 0; i != sceneObjects.size() ; i++)
     {
-	     globalBB.addBoundingBox(sceneObjects[i].bb);
+	     initSpatialDS(sceneObjects[i].bb);
     }
     
     cout << "global min: " << globalBB.min.x << " " << globalBB.min.y << " " << globalBB.min.z << "\n"; 
@@ -1180,7 +1274,7 @@ int main(int argc, char **argv)
 	     checkForBBFrustumInterestion();
 	     getAnchorCameraWeights();
 	   
-        //START MAKING MAP!!! 
+        //ZJW: where generate node called in this if (line 1299)
 	 	
         //randomly selects a high weight node to use as root
         if (highestWeightNodes.size() > 0)
