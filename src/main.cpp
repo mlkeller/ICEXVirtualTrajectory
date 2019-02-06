@@ -198,12 +198,6 @@ void computeSpatialBB(BoundingBox targetBB)
         tempMax.z = targetBB.max.z;
     }
     
-    std::cout << "BB min x: " << targetBB.min.x << std::endl;
-    std::cout << "BB max x: " << targetBB.max.x << std::endl;
-    std::cout << "BB min y: " << targetBB.min.y << std::endl;
-    std::cout << "BB max y: " << targetBB.max.y << std::endl;
-    std::cout << "BB min z: " << targetBB.min.z << std::endl;
-    std::cout << "BB max z: " << targetBB.max.z << std::endl;
     // Compute extents
     xExtent = tempMax.x - tempMin.x;
     yExtent = tempMax.y - tempMin.y;
@@ -221,6 +215,13 @@ void computeSpatialBB(BoundingBox targetBB)
     realMax.x = tempMax.x + 0.5f * xExtent;
     realMax.y = tempMax.y + 0.5f * yExtent;
     realMax.z = tempMax.z + 0.5f * zExtent;
+
+    std::cout << "BB min x: " << realMin.x << std::endl;
+    std::cout << "BB max x: " << realMax.x << std::endl;
+    std::cout << "BB min y: " << realMin.y << std::endl;
+    std::cout << "BB max y: " << realMax.y << std::endl;
+    std::cout << "BB min z: " << realMin.z << std::endl;
+    std::cout << "BB max z: " << realMax.z << std::endl;
 }
 
 float getMaxExtent()
