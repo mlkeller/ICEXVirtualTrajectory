@@ -197,11 +197,21 @@ void computeSpatialBB(BoundingBox targetBB)
     {
         tempMax.z = targetBB.max.z;
     }
-
+    
+    std::cout << "BB min x: " << targetBB.min.x << std::endl;
+    std::cout << "BB max x: " << targetBB.max.x << std::endl;
+    std::cout << "BB min y: " << targetBB.min.y << std::endl;
+    std::cout << "BB max y: " << targetBB.max.y << std::endl;
+    std::cout << "BB min z: " << targetBB.min.z << std::endl;
+    std::cout << "BB max z: " << targetBB.max.z << std::endl;
     // Compute extents
     xExtent = tempMax.x - tempMin.x;
     yExtent = tempMax.y - tempMin.y;
     zExtent = tempMax.z - tempMin.z;
+
+    std::cout << "Extent x: " << xExtent << std::endl;
+    std::cout << "Extent y: " << yExtent << std::endl;
+    std::cout << "Extent z: " << zExtent << std::endl;
 
     // Compute real target min & max
     realMin.x = tempMin.x - 0.5f * xExtent;
@@ -222,12 +232,19 @@ float getMaxExtent()
 static void initSpatialDS(BoundingBox targetBB)
 {
     computeSpatialBB(targetBB);
-    voxelSize = getMaxExtent();
+
+    voxelSize = 1.5f;  //maxExtent, 1/2 speed auv travels
+    std::cout << "Voxel size: " << voxelSize << std::endl;
 
     // set x, y, and z dimensions of data structure
     int dimX = xExtent / voxelSize;
     int dimY = yExtent / voxelSize;
     int dimZ = zExtent / voxelSize;
+    std::cout << "Dim x: " << dimX << std::endl;
+    std::cout << "Dim y: " << dimY << std::endl;
+    std::cout << "Dim z: " << dimZ << std::endl;
+
+    vector<vector<vector<Voxel>>> tempGrid(dimX, vector<vector<Voxel>>(dimY, vector<Voxel>(dimZ)));
     
     // fill in 3D grid with voxels
     for (int x = 0; x < dimX; x++)
@@ -236,13 +253,16 @@ static void initSpatialDS(BoundingBox targetBB)
         {
             for (int z = 0; z < dimZ; z++)
             {
-                grid3D[x][y][z] = Voxel();
+                tempGrid[x][y][z] = Voxel();
             }
         }
     }
+
+    grid3D = tempGrid;
 }
 
 // can only be called after voxel size is set in initSpatialDS
+//ZJW HERE!!!
 vec3 worldToIndexCoords(vec3 worldCoords)
 {
     vec3 indexCoords = vec3(0);
@@ -251,7 +271,47 @@ vec3 worldToIndexCoords(vec3 worldCoords)
     indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
     indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
 
+    std::cout << "Index Coord X: " << indexCoords.x << std::endl;
+    std::cout << "Index Coord Y: " << indexCoords.y << std::endl; 
+    std::cout << "Index Coord Z: " << indexCoords.z << std::endl;
+
     return indexCoords;
+}
+
+void insertIntoSpatialDS(Anchor node)
+{
+    vec3 spatialIndex = worldToIndexCoords(node.pos);
+    vector<Anchor> curNodes = grid3D[spatialIndex.x][spatialIndex.y][spatialIndex.z].getPRMNodes();
+    curNodes.push_back(node);
+    grid3D[spatialIndex.x][spatialIndex.y][spatialIndex.z].setPRMNodes(curNodes);
+}
+
+Anchor getNodeFromBinWithLeast()
+{
+    Voxel smallestBin;
+    int least = INT_MAX;
+
+    for (int i = 0; i < grid3D.size(); i++)
+    {
+        for (int j = 0; j < grid3D[i].size(); j++)
+        {
+            for (int k = 0; k < grid3D[i][j].size(); k++)
+            {
+                Voxel curBin = grid3D[i][j][k].getPRMNodes();
+                int numNodes = curBin.getPRMNodes().size();
+
+                if (numNodes < least && numNodes > 0)
+                {
+                    least = numNodes;
+                    smallestBin = curBin;
+                }
+            }
+        }
+    }
+
+    int nodeIndex = rand() % smallestBin.getPRMNodes().size();
+
+    return smallestBin.getPRMNodes().at(nodeIndex);
 }
 
 float avg(float num1, float num2)
@@ -857,6 +917,7 @@ bool boxFrustumIntersectionTest(Frustum fru)
 
 void checkForBBFrustumInterestion()
 {
+    Nodes.reserve(anchorPts.size());
     for (int i = 0; i < anchorPts.size(); i++)
     {
 	     //0 is flase 
@@ -865,6 +926,7 @@ void checkForBBFrustumInterestion()
 
 	     if (hit)
         {
+            //fprintf(stderr, "%d\n", i);
 		      anchorPts[i].updateAnchorType(hit);
 		      Nodes.push_back(anchorPts[i]);
 	     }
@@ -880,7 +942,7 @@ void getAnchorCameraWeights()
 
     for (int i = 0; i < Nodes.size(); i++)
     {
-	     cout << "Roadmap size: " << roadMap.size() << "\n";
+	    // cout << "Roadmap size: " << roadMap.size() << "\n";
 	     Nodes[i].getWeight(globalBB, hits, roadMap);
 	     weightTotal += Nodes[i].weight;
     } 
@@ -900,6 +962,8 @@ void getAnchorCameraWeights()
 	     if (Nodes[i].weight >= highLevelCutOff)
         {
 	         highestWeightNodes.push_back(Nodes[i]);
+            
+            insertIntoSpatialDS(Nodes[i]);
 	     }
     }
 }
@@ -966,18 +1030,20 @@ int generateNewNode(int numNodes)
     bool high = false;
 
     /* For each newNode generated, have every other one expand off of current nodes in the */
-    if(iteration % 2 == 0)
-    {
-        currIdx = rand() % highWeightNodes.size();
-	     curr = highWeightNodes[currIdx];
-	     high = true;
-    }
-    else
-    { 
-        //chose a random node in roadmap untill nodes weight is > weightThreshold 
-        nodeIndex = rand() % roadMap.size();
-	     curr = roadMap.at(nodeIndex);
-    }
+    //if(iteration % 2 == 0)
+    //{
+    //    currIdx = rand() % highWeightNodes.size();
+	   //  curr = highWeightNodes[currIdx];
+	   //  high = true;
+    //}
+    //else
+    //{ 
+    //    //chose a random node in roadmap untill nodes weight is > weightThreshold 
+    //    nodeIndex = rand() % roadMap.size();
+	   //  curr = roadMap.at(nodeIndex);
+    //}
+
+    curr = getNodeFromBinWithLeast();
 
     newNode.parentIndex = curr.ndex;
     //creates a random anchor point to expand off of
@@ -1273,8 +1339,6 @@ int main(int argc, char **argv)
 	     setCameras();
 	     checkForBBFrustumInterestion();
 	     getAnchorCameraWeights();
-	   
-        //ZJW: where generate node called in this if (line 1299)
 	 	
         //randomly selects a high weight node to use as root
         if (highestWeightNodes.size() > 0)

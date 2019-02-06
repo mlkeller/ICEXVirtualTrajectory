@@ -8,7 +8,7 @@ class Voxel
 
 public:
     Voxel()
-    {    }
+    { }
 
 
     Voxel(vector<Anchor> nodes)

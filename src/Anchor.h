@@ -142,13 +142,17 @@ public:
 
 
          
-         delta = radians(camPhi);
+         float pitchDelta = radians(camPhi);
+         float yawDelta = radians(camTheta);
 
          pitch.x = 0;
-         pitch.z = look.z*cos(delta) - look.y*sin(delta);
-         pitch.y = look.y*cos(delta) - look.z*sin(delta);      
+         pitch.y = look.y*cos(pitchDelta) - look.z*sin(pitchDelta);
+         pitch.z = look.z*cos(pitchDelta) - look.y*sin(pitchDelta);
 
-         yaw = getPerpendicularVector(pitch);
+         yaw.x = look.x*cos(yawDelta) - look.z*sin(yawDelta);
+         yaw.y = 0;
+         yaw.z = look.z*cos(yawDelta) - look.x*sin(yawDelta);
+         //yaw = getPerpendicularVector(pitch);
          //yaw = normalize(yaw);    
          camTheta = atan(yaw.x/yaw.z);
          camTheta = degrees(camTheta);
@@ -172,21 +176,7 @@ public:
       //cout << "pitch: " << pitch.x << " " << pitch.y << " " << pitch.z << "\n";
       *pos = prev->pos + this->velocity*vec3(3,3,3);
       cout << "pos: " << pos->x << " " << pos->y << " " << pos->z << "\n";
-      delta = rand() / float(RAND_MAX);
-      delta = (1.0f - delta) * -20 + delta * 20;
-      camPhi = prev->camPhi + delta;
-      if(camPhi > 20){
-         camPhi = 20;
-      }else if(camPhi < -20){
-         camPhi = -20;
-      }
-      delta = radians(camPhi);
 
-      pitch.x = 0;
-      pitch.z = look.z*cos(delta) - look.y*sin(delta);
-      pitch.y = look.y*cos(delta) - look.z*sin(delta);      
-
-      yaw = getPerpendicularVector(pitch);
       *lookAt = prev->camera.lookAt + this->velocity*vec3(3,3,3);
 /*    lookAt->x = 0;
       lookAt->y = 0;
