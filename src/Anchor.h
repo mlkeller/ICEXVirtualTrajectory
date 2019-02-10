@@ -17,178 +17,229 @@ using namespace glm;
 #define BETA .33
 #define GAMMA  .33
 
-struct Anchor: public Obj{
+struct Anchor : public Obj {
 public:
-   Anchor(){
-   }
+    Anchor() {
+    }
 
-   Anchor(string dir, string Mesh, string vertShader, string fragShader, string texture, int textNum, int textType, int sType){
-      RESOURCE_DIR = dir;
-      mesh = Mesh; 
-      vert = vertShader;
-      frag = fragShader;
-      textureName = texture;
-      textureNum = textNum;
-      textureType = textType;
-      shapeType = sType;
-      anchorType = -1;
-      parentIndex = -1;
-      pathLength =1;
-   }
+    Anchor(string dir, string Mesh, string vertShader, string fragShader, string texture, int textNum, int textType, int sType) {
+        RESOURCE_DIR = dir;
+        mesh = Mesh;
+        vert = vertShader;
+        frag = fragShader;
+        textureName = texture;
+        textureNum = textNum;
+        textureType = textType;
+        shapeType = sType;
+        anchorType = -1;
+        parentIndex = -1;
+        pathLength = 1;
+    }
 
-
-   float anchorType;
-   Camera camera; 
-   vec3 pos;
-   vec3 view;
-   FrustumObj fObj;
-   float sampleNums;
-   float weight=0;
-   float depth;
-   float camPhi;
-   float camTheta;
-   int parentIndex;
-   float robotTheta;
-   int pathLength;
-   int ndex;
-   int radius = 80;
-   int root = 0;
-   unsigned int hitting = 0;
-   int newSideSeen = 0;
-   vec3 velocity = vec3(0.0,0.0,0.0);
-   vec3 constVelMults = vec3(1.0, 1.0, 0.8);
-
-
-   void createLookAt(vec3 origin, vec3 *lookAt){
-      float radius = 6;
-      float theta;
-      vec3 pitch, yaw;
-      //vec3 temp = vec3(origin.x+.001,origin.y-100, origin.z+.001);
-      vec3 temp = vec3(0,0,0);
-      vec3 look = vec3(0,-1,0);
-
-      camPhi = rand() / float(RAND_MAX);
-      camPhi = (1.0f - camPhi) * -20 + camPhi * 20;
-      //cout << "phi: " << camPhi << "\n";
-      float delta = radians(camPhi);
-      pitch.x = 0;
-      pitch.z = look.z*cos(delta) - look.y*sin(delta);
-      pitch.y = look.y*cos(delta) - look.z*sin(delta);
-      //pitch = normalize(pitch);
-      //cout << "pitch: " << pitch.x  << " " << pitch.y << " " << pitch.z << "\n";
-      yaw = getPerpendicularVector(pitch);
-      //yaw = normalize(yaw);    
-      camTheta = atan(yaw.x/yaw.z);
-      //cout << "yaw: " << yaw.x  << " " << yaw.y << " " << yaw.z << "\n";
-      //cout << "theta: " << camTheta << "\n";
+    float anchorType;
+    Camera camera;
+    vec3 pos = vec3(-1.0f);
+    vec3 view;
+    FrustumObj fObj;
+    float sampleNums;
+    float weight = 0;
+    float depth;
+    float camPhi;
+    float camTheta;
+    int parentIndex;
+    float robotTheta;
+    int pathLength;
+    int ndex;
+    int radius = 80;
+    int root = 0;
+    unsigned int hitting = 0;
+    int newSideSeen = 0;
+    vec3 velocity = vec3(0.0, 0.0, 0.0);
+    vec3 constVelMults = vec3(1.0, 1.0, 0.8);
 
 
-      vec3 dir = pitch + yaw; 
+    void createLookAt(vec3 origin, vec3 *lookAt) {
+        float radius = 6;
+        float theta;
+        vec3 pitch, yaw;
+        //vec3 temp = vec3(origin.x+.001,origin.y-100, origin.z+.001);
+        vec3 temp = vec3(0, 0, 0);
+        vec3 look = vec3(0, -1, 0);
 
-      //cout << "dir: " << dir.x  << " " << dir.y << " " << dir.z << "\n";
-      temp = dir;
-      lookAt->x = temp.x;
-      lookAt->y = temp.y;
-      lookAt->z = temp.z;
-
-      /*
-      lookAt->x =rand()%1000;n
-      lookAt->y =rand()%1000;
-      lookAt->z =rand()%1000;
-      */
-      /*
-      lookAt->x = 0;
-      lookAt->y = 0;
-      lookAt->z = 0;
-      */
-   }
-
-
-   vec3 createPos(float height, int pathLength, int numNodes){
-      double posTheta = pathLength * ((2 * M_PI) / numNodes);
-      double curRadius = randRangef(radius - 1, radius + 1);
-      return glm::vec3(
-         constVelMults[0] * curRadius * cos(posTheta), 
-         constVelMults[1] * height,
-         constVelMults[2] * curRadius * sin(posTheta));
-   }
-
-   vec3 getPerpendicularVector(vec3 v){
-      float y;
-      y = (-v.x-v.z)/v.y;
-      return vec3(1,y,1);
-   }
+        camPhi = rand() / float(RAND_MAX);
+        camPhi = (1.0f - camPhi) * -20 + camPhi * 20;
+        //cout << "phi: " << camPhi << "\n";
+        float delta = radians(camPhi);
+        pitch.x = 0;
+        pitch.z = look.z*cos(delta) - look.y*sin(delta);
+        pitch.y = look.y*cos(delta) - look.z*sin(delta);
+        //pitch = normalize(pitch);
+        //cout << "pitch: " << pitch.x  << " " << pitch.y << " " << pitch.z << "\n";
+        yaw = getPerpendicularVector(pitch);
+        //yaw = normalize(yaw);    
+        camTheta = atan(yaw.x / yaw.z);
+        //cout << "yaw: " << yaw.x  << " " << yaw.y << " " << yaw.z << "\n";
+        //cout << "theta: " << camTheta << "\n";
 
 
-   void setPositionAndLookAt(Anchor *prev, vec3 *lookAt, vec3 *pos, int iteration, vector<Anchor> roadMap){
-      *lookAt = prev->camera.lookAt;
-      *pos = prev->pos;
+        vec3 dir = pitch + yaw;
 
-      vec3 pitch, yaw;
-      vec3 look = vec3(0,-1,0); //camera is looking straight down 
-      //srand(time(0));
-      float delta = rand() / float(RAND_MAX);
-      delta = (1.0f - delta) * -20 + delta * 20;
-      cout << "delta: " << delta << "\n";
-      //cout << "prev Phi: " << prev->camPhi << " \nprev Theta: " << prev->camTheta << "\n";; 
-      //if(iteration%2 == 0){ //even iteration change yaw (effects x and z) by 20 degrees and set position
-         camPhi = prev->camPhi + delta;
-         if(camPhi > 20){
+        //cout << "dir: " << dir.x  << " " << dir.y << " " << dir.z << "\n";
+        temp = dir;
+        lookAt->x = temp.x;
+        lookAt->y = temp.y;
+        lookAt->z = temp.z;
+
+        /*
+        lookAt->x =rand()%1000;n
+        lookAt->y =rand()%1000;
+        lookAt->z =rand()%1000;
+        */
+        /*
+        lookAt->x = 0;
+        lookAt->y = 0;
+        lookAt->z = 0;
+        */
+    }
+
+
+    vec3 createPos(float height, int pathLength, int numNodes) {
+        double posTheta = pathLength * ((2 * M_PI) / numNodes);
+        double curRadius = randRangef(radius - 1, radius + 1);
+        return glm::vec3(
+            constVelMults[0] * curRadius * cos(posTheta),
+            constVelMults[1] * height,
+            constVelMults[2] * curRadius * sin(posTheta));
+    }
+
+    vec3 getPerpendicularVector(vec3 v) {
+        float y;
+        y = (-v.x - v.z) / v.y;
+        return vec3(1, y, 1);
+    }
+
+
+    void setPositionAndLookAt(Anchor *prev, vec3 *lookAt, vec3 *pos, int iteration, vector<Anchor> roadMap) {
+        *lookAt = prev->camera.lookAt;
+        *pos = prev->pos;
+
+        vec3 pitch, yaw;
+        vec3 look = vec3(0, -1, 0); //camera is looking straight down 
+        //srand(time(0));
+        float delta = rand() / float(RAND_MAX);
+        delta = (1.0f - delta) * -20 + delta * 20;
+        cout << "delta: " << delta << "\n";
+        //cout << "prev Phi: " << prev->camPhi << " \nprev Theta: " << prev->camTheta << "\n";; 
+        //if(iteration%2 == 0){ //even iteration change yaw (effects x and z) by 20 degrees and set position
+        camPhi = prev->camPhi + delta;
+        if (camPhi > 20) {
             camPhi = 20;
-         }else if(camPhi < -20){
+        }
+        else if (camPhi < -20) {
             camPhi = -20;
-         }
-         //cout << "phi: " << camPhi << "\n";
+        }
+        //cout << "phi: " << camPhi << "\n";
+
+        delta = radians(camPhi);
+
+        pitch.x = 0;
+        pitch.y = look.y*cos(delta) - look.z*sin(delta);
+        pitch.z = look.z*cos(delta) - look.y*sin(delta);
+
+        // yaw = getPerpendicularVector(pitch);
+
+        camTheta = prev->camTheta + delta;
+        if (camTheta > 20) {
+            camTheta = 20;
+        }
+        else if (camTheta < -20) {
+            camTheta = -20;
+        }
+
+        delta = radians(camTheta);
+
+        yaw.x = look.x*cos(delta) - look.z*sin(delta);
+        yaw.y = 0;
+        yaw.z = look.z*cos(delta) - look.x*sin(delta);
+
+        // yaw = normalize(yaw);    
+        // camTheta = atan(yaw.x / yaw.z);
+        // camTheta = degrees(camTheta);
+
+        if (this->hitting > roadMap[this->parentIndex].hitting) { //If the child sees a new side
+            this->velocity = normalize(cross(pitch, yaw));
+            this->newSideSeen = 1;
+        }
+        else if (0) { //If side that was seen is not seen anymore
+
+        }
+        else if (this->newSideSeen == 1) { //If new side has been seen
+            this->velocity = roadMap[this->parentIndex].velocity;
+        }
+        else if (this->newSideSeen == 0) {
+            this->velocity = normalize(cross(pitch, yaw));
+        }
+        this->velocity = normalize(cross(pitch, yaw));
+        //cout << "yaw: " << yaw.x << " " << yaw.y << " " << yaw.z << "\n";
+        //cout << "pitch: " << pitch.x << " " << pitch.y << " " << pitch.z << "\n";
+        *pos = prev->pos + this->velocity;
+        cout << "pos: " << pos->x << " " << pos->y << " " << pos->z << "\n";
 
 
-         
-         float pitchDelta = radians(camPhi);
-         float yawDelta = radians(camTheta);
 
-         pitch.x = 0;
-         pitch.y = look.y*cos(pitchDelta) - look.z*sin(pitchDelta);
-         pitch.z = look.z*cos(pitchDelta) - look.y*sin(pitchDelta);
+        delta = rand() / float(RAND_MAX);
+        delta = (1.0f - delta) * -20 + delta * 20;
+        camPhi = prev->camPhi + delta;
+        if (camPhi > 20) {
+            camPhi = 20;
+        }
+        else if (camPhi < -20) {
+            camPhi = -20;
+        }
+        delta = radians(camPhi);
 
-         yaw.x = look.x*cos(yawDelta) - look.z*sin(yawDelta);
-         yaw.y = 0;
-         yaw.z = look.z*cos(yawDelta) - look.x*sin(yawDelta);
-         //yaw = getPerpendicularVector(pitch);
-         //yaw = normalize(yaw);    
-         camTheta = atan(yaw.x/yaw.z);
-         camTheta = degrees(camTheta);
+        pitch.x = 0;
+        pitch.z = look.z*cos(delta) - look.y*sin(delta);
+        pitch.y = look.y*cos(delta) - look.z*sin(delta);
 
+        yaw = getPerpendicularVector(pitch);
+        *lookAt = prev->camera.lookAt + this->velocity;
+    }
 
-      if(this->hitting > roadMap[this->parentIndex].hitting) { //If the child sees a new side
-         this->velocity = normalize(cross(pitch,yaw));
-         this->newSideSeen = 1;
-      }
-      else if (0) { //If side that was seen is not seen anymore
-
-      }
-      else if (this->newSideSeen == 1){ //If new side has been seen
-         this->velocity = roadMap[this->parentIndex].velocity; 
-      }
-      else if (this->newSideSeen == 0) {
-         this->velocity = normalize(cross(pitch,yaw));
-      }
-      this->velocity = normalize(cross(pitch,yaw));
-      //cout << "yaw: " << yaw.x << " " << yaw.y << " " << yaw.z << "\n";
-      //cout << "pitch: " << pitch.x << " " << pitch.y << " " << pitch.z << "\n";
-      *pos = prev->pos + this->velocity*vec3(3,3,3);
-      cout << "pos: " << pos->x << " " << pos->y << " " << pos->z << "\n";
-
-      *lookAt = prev->camera.lookAt + this->velocity*vec3(3,3,3);
-/*    lookAt->x = 0;
-      lookAt->y = 0;
-      lookAt->z = 0;*/
-   }
- 
-
-   void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear, BoundingBox bb, int hits[], vector<Anchor> roadMap){
+   void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear, 
+                     BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax){
       vec3 lookAt;
       vec3 position;
-      setPositionAndLookAt(prev,&lookAt,&position,iteration, roadMap);
-      pos = position; 
+
+      setPositionAndLookAt(prev, &lookAt, &position, iteration, roadMap);  
+      pos = position;
+
+      // make sure position is valid
+      if (pos.x < realMin.x)
+      {
+          pos.x = realMin.x;
+      }
+      if (pos.y < realMin.y)
+      {
+          pos.y = realMin.y;
+      }
+      if (pos.z < realMin.z)
+      {
+          pos.z = realMin.z;
+      }
+      if (pos.x > realMax.x)
+      {
+          pos.x = realMax.x;
+      }
+      if (pos.y > realMax.y)
+      {
+          pos.y = realMax.y;
+      }
+      if (pos.z > realMax.z)
+      {
+          pos.z = realMax.z;
+      }
+
       //cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
       //cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n";
       pathLength = pathlength;

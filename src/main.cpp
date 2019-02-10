@@ -80,8 +80,7 @@ vec3 sceneSizeMax = vec3(sceneSize,sceneSize,sceneSize);
 vec3 sceneSizeMin = vec3(sceneSize,1,sceneSize);
 vec3 lawnMowerSizeMax = vec3(3,3,3);
 vec3 lawnMowerSizeMin = vec3(3,1,3);
-float distFromWreck = 4;
-vec3 distanceFromWreck = vec3(distFromWreck,distFromWreck,distFromWreck);
+vec3 distanceFromWreck = vec3(1.2);
 
 //Hashmap
 
@@ -160,9 +159,9 @@ vec3 globalBBtrans, globalBBscale;
 // Spatial Data Structure
 vec3 realMin = vec3(1.1754E+38F);
 vec3 realMax = vec3(-1.1754E+38F);
-float xExtent = 0;
-float yExtent = 0;
-float zExtent = 0;
+float xRealExtent = 0;
+float yRealExtent = 0;
+float zRealExtent = 0;
 float voxelSize = 0; // currently use max extent
 typedef vector<vector<vector<Voxel>>> SpatialDataStructure;
 SpatialDataStructure grid3D; // 3D grid of voxels, voxels contain PRM nodes
@@ -199,22 +198,27 @@ void computeSpatialBB(BoundingBox targetBB)
     }
     
     // Compute extents
-    xExtent = tempMax.x - tempMin.x;
-    yExtent = tempMax.y - tempMin.y;
-    zExtent = tempMax.z - tempMin.z;
-
-    std::cout << "Extent x: " << xExtent << std::endl;
-    std::cout << "Extent y: " << yExtent << std::endl;
-    std::cout << "Extent z: " << zExtent << std::endl;
+    float xTempExtent = tempMax.x - tempMin.x;
+    float yTempExtent = tempMax.y - tempMin.y;
+    float zTempExtent = tempMax.z - tempMin.z;
 
     // Compute real target min & max
-    realMin.x = tempMin.x - 0.5f * xExtent;
-    realMin.y = tempMin.y - 0.5f * yExtent;
-    realMin.z = tempMin.z - 0.5f * zExtent;
+    realMin.x = tempMin.x - 0.5f * xTempExtent;
+    realMin.y = tempMin.y - 0.5f * yTempExtent;
+    realMin.z = tempMin.z - 0.5f * zTempExtent;
 
-    realMax.x = tempMax.x + 0.5f * xExtent;
-    realMax.y = tempMax.y + 0.5f * yExtent;
-    realMax.z = tempMax.z + 0.5f * zExtent;
+    realMax.x = tempMax.x + 0.5f * xTempExtent;
+    realMax.y = tempMax.y + 0.5f * yTempExtent;
+    realMax.z = tempMax.z + 0.5f * zTempExtent;
+
+    xRealExtent = realMax.x - realMin.x;
+    yRealExtent = realMax.y - realMin.y;
+    zRealExtent = realMax.z - realMin.z;
+
+    std::cout << "Extent x: " << xRealExtent << std::endl;
+    std::cout << "Extent y: " << yRealExtent << std::endl;
+    std::cout << "Extent z: " << zRealExtent << std::endl;
+
 
     std::cout << "BB min x: " << realMin.x << std::endl;
     std::cout << "BB max x: " << realMax.x << std::endl;
@@ -226,7 +230,7 @@ void computeSpatialBB(BoundingBox targetBB)
 
 float getMaxExtent()
 {
-    return std::max(std::max(xExtent, yExtent), zExtent);
+    return std::max(std::max(xRealExtent, yRealExtent), zRealExtent);
 }
 
 // set up spatial data structure (3D grid of voxels)
@@ -234,13 +238,13 @@ static void initSpatialDS(BoundingBox targetBB)
 {
     computeSpatialBB(targetBB);
 
-    voxelSize = 1.5f;  //maxExtent, 1/2 speed auv travels
+    voxelSize = 2.5f;  //maxExtent, 1/2 speed auv travels
     std::cout << "Voxel size: " << voxelSize << std::endl;
 
     // set x, y, and z dimensions of data structure
-    int dimX = xExtent / voxelSize;
-    int dimY = yExtent / voxelSize;
-    int dimZ = zExtent / voxelSize;
+    int dimX = xRealExtent / voxelSize + 1;
+    int dimY = yRealExtent / voxelSize + 1;
+    int dimZ = zRealExtent / voxelSize + 1;
     std::cout << "Dim x: " << dimX << std::endl;
     std::cout << "Dim y: " << dimY << std::endl;
     std::cout << "Dim z: " << dimZ << std::endl;
@@ -268,6 +272,10 @@ vec3 worldToIndexCoords(vec3 worldCoords)
 {
     vec3 indexCoords = vec3(0);
 
+    std::cout << "World Coord X: " << worldCoords.x << std::endl;
+    std::cout << "World Coord Y: " << worldCoords.y << std::endl;
+    std::cout << "World Coord Z: " << worldCoords.z << std::endl;
+
     indexCoords.x = std::floor((worldCoords.x - realMin.x) / voxelSize);
     indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
     indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
@@ -291,6 +299,7 @@ Anchor getNodeFromBinWithLeast()
 {
     Voxel smallestBin;
     int least = INT_MAX;
+    int count = 0;
 
     for (int i = 0; i < grid3D.size(); i++)
     {
@@ -300,6 +309,11 @@ Anchor getNodeFromBinWithLeast()
             {
                 Voxel curBin = grid3D[i][j][k].getPRMNodes();
                 int numNodes = curBin.getPRMNodes().size();
+
+                if (numNodes > 0)
+                {
+                    count++;
+                }
 
                 if (numNodes < least && numNodes > 0)
                 {
@@ -963,8 +977,6 @@ void getAnchorCameraWeights()
 	     if (Nodes[i].weight >= highLevelCutOff)
         {
 	         highestWeightNodes.push_back(Nodes[i]);
-            
-            insertIntoSpatialDS(Nodes[i]);
 	     }
     }
 }
@@ -1031,30 +1043,30 @@ int generateNewNode(int numNodes)
     bool high = false;
 
     /* For each newNode generated, have every other one expand off of current nodes in the */
-    //if(iteration % 2 == 0)
-    //{
-    //    currIdx = rand() % highWeightNodes.size();
-	   //  curr = highWeightNodes[currIdx];
-	   //  high = true;
-    //}
-    //else
-    //{ 
-    //    //chose a random node in roadmap untill nodes weight is > weightThreshold 
-    //    nodeIndex = rand() % roadMap.size();
-	   //  curr = roadMap.at(nodeIndex);
-    //}
-
-    curr = getNodeFromBinWithLeast();
+    if(iteration % 2 == 0)
+    {
+        currIdx = rand() % highWeightNodes.size();
+	     curr = highWeightNodes[currIdx];
+	     high = true;
+    }
+    else
+    { 
+        //chose a random node in roadmap until nodes weight is > weightThreshold 
+       /* nodeIndex = rand() % roadMap.size();
+	     curr = roadMap.at(nodeIndex);*/
+        curr = getNodeFromBinWithLeast();
+    }
 
     newNode.parentIndex = curr.ndex;
     //creates a random anchor point to expand off of
     //cout << "creating new node\n";
-    newNode.createAnchor(pitchIteration, &curr, numNodes, curr.pathLength + 1, aspect, zNear, globalBB, hits, roadMap);
+    newNode.createAnchor(pitchIteration, &curr, numNodes, curr.pathLength + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax);
     cout<< "high level: " << highLevelCutOff << "\n";
     cout<< "newNode Weight: " << newNode.weight << "\n";
   
     newNode.ndex = roadMap.size();
     roadMap.push_back(newNode);
+    insertIntoSpatialDS(newNode);
 
     if (curr.weight < highWeightAvg && high == true)
     {
@@ -1312,8 +1324,8 @@ int main(int argc, char **argv)
 	// USING NODE PATH 
     if (useNodePath || cameraType == 0)
     {
-        vec3 minBB = globalBB.min * sceneSizeMin;
-        vec3 maxBB = globalBB.max * sceneSizeMax;
+        vec3 minBB = realMin;
+        vec3 maxBB = realMax;
 
         //get sample box information
         sampleDelta = 10;
@@ -1324,7 +1336,7 @@ int main(int argc, char **argv)
                 for (float k = minBB.z; k <= maxBB.z; k += sampleDelta)
                 {
                     vec3 tempLoc = vec3(i, j, k);
-                    if (inBB(tempLoc, globalBB.min * distanceFromWreck, globalBB.max * distanceFromWreck) == false)
+                    if (inBB(tempLoc, realMin, realMax) == false)
                     {
 	                     anchor.addPosition(tempLoc);
 	                     anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
@@ -1356,6 +1368,7 @@ int main(int argc, char **argv)
             rootNode.ndex = 0;
             roadMap.push_back(rootNode);
             highWeightNodes.push_back(rootNode);
+            insertIntoSpatialDS(rootNode);
             highWeightAvg = rootNode.weight;
 
             int maxNodes = 20;
