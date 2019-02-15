@@ -5,6 +5,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <math.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "FrustumObj.h"
@@ -146,11 +147,11 @@ public:
         pitch.y = look.y*cos(delta) - look.z*sin(delta);
         pitch.z = look.z*cos(delta) - look.y*sin(delta);
 
-        // yaw = getPerpendicularVector(pitch);
-
+        yaw = getPerpendicularVector(pitch);
+		/*
         camTheta = prev->camTheta + delta;
         if (camTheta > 20) {
-            camTheta = 20;
+            camTheta = 20; 
         }
         else if (camTheta < -20) {
             camTheta = -20;
@@ -160,28 +161,30 @@ public:
 
         yaw.x = look.x*cos(delta) - look.z*sin(delta);
         yaw.y = 0;
-        yaw.z = look.z*cos(delta) - look.x*sin(delta);
+        yaw.z = look.z*cos(delta) - look.x*sin(delta);*/
+   
+        camTheta = atan(yaw.x / yaw.z);
+        camTheta = degrees(camTheta);
 
-        // yaw = normalize(yaw);    
-        // camTheta = atan(yaw.x / yaw.z);
-        // camTheta = degrees(camTheta);
+		if (this->hitting > roadMap[this->parentIndex].hitting) { //If the child sees a new side
+			this->velocity = normalize(cross(pitch, yaw));
+			this->newSideSeen = 1;
+		}
+		else if (0) { //If side that was seen is not seen anymore
 
-        if (this->hitting > roadMap[this->parentIndex].hitting) { //If the child sees a new side
-            this->velocity = normalize(cross(pitch, yaw));
-            this->newSideSeen = 1;
-        }
-        else if (0) { //If side that was seen is not seen anymore
-
-        }
-        else if (this->newSideSeen == 1) { //If new side has been seen
-            this->velocity = roadMap[this->parentIndex].velocity;
-        }
-        else if (this->newSideSeen == 0) {
-            this->velocity = normalize(cross(pitch, yaw));
-        }
+		}
+		else if (this->newSideSeen == 1) { //If new side has been seen
+			this->velocity = roadMap[this->parentIndex].velocity;
+		}
+		else if (this->newSideSeen == 0) {
+			this->velocity = normalize(cross(pitch, yaw));
+			/*this->velocity.x = cos(pitch.x) * cos(yaw.x);
+			this->velocity.y = sin(yaw.y);
+			this->velocity.z = sin(pitch.z) * cos(yaw.z);*/
+		}
         this->velocity = normalize(cross(pitch, yaw));
-        //cout << "yaw: " << yaw.x << " " << yaw.y << " " << yaw.z << "\n";
-        //cout << "pitch: " << pitch.x << " " << pitch.y << " " << pitch.z << "\n";
+        // cout << "yaw: " << yaw.x << " " << yaw.y << " " << yaw.z << "\n";
+        // cout << "pitch: " << pitch.x << " " << pitch.y << " " << pitch.z << "\n";
         *pos = prev->pos + this->velocity;
         cout << "pos: " << pos->x << " " << pos->y << " " << pos->z << "\n";
 
@@ -206,12 +209,57 @@ public:
         *lookAt = prev->camera.lookAt + this->velocity;
     }
 
-   void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear, 
+	void calculatePosition(Anchor *prev, vec3 *pos, vec3 *velocity, vector<Anchor> roadMap)
+	{
+		*pos = prev->pos;
+		vec3 prevVelocity = normalize(roadMap[this->parentIndex].velocity);
+		int isInf = isnan(prevVelocity.x);
+		if (isInf == 1)
+		{
+			prevVelocity.x = rand() / float(RAND_MAX);
+			prevVelocity.y = rand() / float(RAND_MAX);
+			prevVelocity.z = rand() / float(RAND_MAX);
+		}
+		//cout << "velocity: " << prevVelocity.x << " " << prevVelocity.y << " " << prevVelocity.z << "\n";
+		
+		float phi = asin(prevVelocity.y);
+		float theta = atan2(prevVelocity.x, prevVelocity.z) - M_PI;
+
+		float pitchDelta = (rand() / float(RAND_MAX)) / 5.0f;
+		float yawDelta = (rand() / float(RAND_MAX)) / 5.0f;
+
+		phi += pitchDelta;
+		theta += yawDelta;
+
+		vec3 newVelocity;
+		newVelocity.x = cos(phi) * sin(M_PI + theta);
+		newVelocity.y = sin(phi);
+		newVelocity.z = cos(phi) * cos(M_PI - theta);
+
+
+		cout << "velocity: " << newVelocity.x << " " << newVelocity.y << " " << newVelocity.z << "\n";
+		this->velocity = newVelocity;
+		*velocity = this->velocity;
+		*pos = prev->pos + this->velocity;
+	}
+
+	void calculateLookAt(vec3 *lookAt, vec3 velocity)
+	{
+		vec3 up = vec3(0.0f, 1.0f, 0.0f);
+		vec3 right = cross(velocity, up);
+		*lookAt = cross(velocity, right);
+	}
+
+	void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear, 
                      BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax){
       vec3 lookAt;
       vec3 position;
+	  vec3 velocity;
 
-      setPositionAndLookAt(prev, &lookAt, &position, iteration, roadMap);  
+     
+	  calculatePosition(prev, &position, &velocity, roadMap);
+	  calculateLookAt(&lookAt, velocity);
+	 // setPositionAndLookAt(prev, &lookAt, &position, iteration, roadMap); 
       pos = position;
 
       // make sure position is valid

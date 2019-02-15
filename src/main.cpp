@@ -238,16 +238,16 @@ static void initSpatialDS(BoundingBox targetBB)
 {
     computeSpatialBB(targetBB);
 
-    voxelSize = 2.5f;  //maxExtent, 1/2 speed auv travels
-    std::cout << "Voxel size: " << voxelSize << std::endl;
+    voxelSize = 0.816;  //maxExtent, 1/2 speed auv travels
+    // std::cout << "Voxel size: " << voxelSize << std::endl;
 
     // set x, y, and z dimensions of data structure
     int dimX = xRealExtent / voxelSize + 1;
     int dimY = yRealExtent / voxelSize + 1;
     int dimZ = zRealExtent / voxelSize + 1;
-    std::cout << "Dim x: " << dimX << std::endl;
+  /*  std::cout << "Dim x: " << dimX << std::endl;
     std::cout << "Dim y: " << dimY << std::endl;
-    std::cout << "Dim z: " << dimZ << std::endl;
+    std::cout << "Dim z: " << dimZ << std::endl;*/
 
     vector<vector<vector<Voxel>>> tempGrid(dimX, vector<vector<Voxel>>(dimY, vector<Voxel>(dimZ)));
     
@@ -272,17 +272,17 @@ vec3 worldToIndexCoords(vec3 worldCoords)
 {
     vec3 indexCoords = vec3(0);
 
-    std::cout << "World Coord X: " << worldCoords.x << std::endl;
+    /*std::cout << "World Coord X: " << worldCoords.x << std::endl;
     std::cout << "World Coord Y: " << worldCoords.y << std::endl;
-    std::cout << "World Coord Z: " << worldCoords.z << std::endl;
+    std::cout << "World Coord Z: " << worldCoords.z << std::endl;*/
 
     indexCoords.x = std::floor((worldCoords.x - realMin.x) / voxelSize);
     indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
     indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
 
-    std::cout << "Index Coord X: " << indexCoords.x << std::endl;
+  /*  std::cout << "Index Coord X: " << indexCoords.x << std::endl;
     std::cout << "Index Coord Y: " << indexCoords.y << std::endl; 
-    std::cout << "Index Coord Z: " << indexCoords.z << std::endl;
+    std::cout << "Index Coord Z: " << indexCoords.z << std::endl;*/
 
     return indexCoords;
 }

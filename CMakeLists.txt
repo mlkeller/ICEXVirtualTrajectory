@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_TOOLCHAIN_FILE "C:/Users/bae/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+set(CMAKE_TOOLCHAIN_FILE "C:/Users/amyle/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 project(icex)
-message(status "boi ${CMAKE_TOOLCHAIN_FILE}")
 
 set(GLAD_DIR "${CMAKE_SOURCE_DIR}/ext/glad/")
 
@@ -33,7 +32,6 @@ find_package(OpenGL REQUIRED)
 find_path(EIGEN3_INCLUDE_DIR Eigen/Dense PATHS ENV EIGEN3_INCLUDE_DIR PATH_SUFFIXES eigen eigen3)
 find_path(GLM_INCLUDE_DIR glm/glm.hpp PATHS ENV GLM_DIR GLM_LOCATION) 
 find_package(OpenCV REQUIRED)
-
 find_package(glfw3 CONFIG REQUIRED)
 
 if (NOT EIGEN3_INCLUDE_DIR)
