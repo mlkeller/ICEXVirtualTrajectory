@@ -63,7 +63,7 @@ public:
    bool randomRays = false;
 
 	void updateSpeed(float speed){
-		camSpeed = speed;
+		camSpeed = 10;
 	}
 
 	void updatePosition(vec3 position){

@@ -55,8 +55,8 @@ public:
     int root = 0;
     unsigned int hitting = 0;
     int newSideSeen = 0;
-    vec3 velocity = vec3(0.0, 0.0, 0.0);
-    vec3 constVelMults = vec3(1.0, 1.0, 0.8);
+    vec3 velocity = vec3(1.0);
+    vec3 auvSpeed = vec3(3.0);
 
 
     void createLookAt(vec3 origin, vec3 *lookAt) {
@@ -101,16 +101,6 @@ public:
         lookAt->y = 0;
         lookAt->z = 0;
         */
-    }
-
-
-    vec3 createPos(float height, int pathLength, int numNodes) {
-        double posTheta = pathLength * ((2 * M_PI) / numNodes);
-        double curRadius = randRangef(radius - 1, radius + 1);
-        return glm::vec3(
-            constVelMults[0] * curRadius * cos(posTheta),
-            constVelMults[1] * height,
-            constVelMults[2] * curRadius * sin(posTheta));
     }
 
     vec3 getPerpendicularVector(vec3 v) {
@@ -213,20 +203,20 @@ public:
 	{
 		*pos = prev->pos;
 		vec3 prevVelocity = normalize(roadMap[this->parentIndex].velocity);
-		int isInf = isnan(prevVelocity.x);
+		/*int isInf = isnan(prevVelocity.x);
 		if (isInf == 1)
 		{
 			prevVelocity.x = rand() / float(RAND_MAX);
 			prevVelocity.y = rand() / float(RAND_MAX);
 			prevVelocity.z = rand() / float(RAND_MAX);
-		}
+		}*/
 		//cout << "velocity: " << prevVelocity.x << " " << prevVelocity.y << " " << prevVelocity.z << "\n";
 		
 		float phi = asin(prevVelocity.y);
 		float theta = atan2(prevVelocity.x, prevVelocity.z) - M_PI;
 
-		float pitchDelta = (rand() / float(RAND_MAX)) / 5.0f;
-		float yawDelta = (rand() / float(RAND_MAX)) / 5.0f;
+		float pitchDelta = M_PI * (rand() / float(RAND_MAX));
+		float yawDelta = M_PI * (rand() / float(RAND_MAX));
 
 		phi += pitchDelta;
 		theta += yawDelta;
@@ -236,6 +226,7 @@ public:
 		newVelocity.y = sin(phi);
 		newVelocity.z = cos(phi) * cos(M_PI - theta);
 
+		newVelocity *= auvSpeed;
 
 		cout << "velocity: " << newVelocity.x << " " << newVelocity.y << " " << newVelocity.z << "\n";
 		this->velocity = newVelocity;
@@ -288,8 +279,8 @@ public:
           pos.z = realMax.z;
       }
 
-      //cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
-      //cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n";
+      cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
+      cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n";
       pathLength = pathlength;
       Camera c = Camera(position, lookAt, 1);
       c.updatePerspective(aspect, 45, zNear, 90);

@@ -131,6 +131,7 @@ bool showPath = false;
 bool useLawnMowerPath = false;
 bool useCircularPath = false;
 bool useNodePath = false;
+string pathName = "";
 
 //FBO for mirror
 GLuint frameBuf[1];
@@ -716,14 +717,14 @@ static void render()
 	             currentCam = path[PATHNUM].camera;
 	             maxCamIndex = path.size() - 1;
 
-	             if (PATHNUM < path.size() - 1)
-                {
-	   		        PATHNUM++;
-	             }
-                else
-                {
-	   		        PATHNUM = 0;
-	             }
+				if (PATHNUM < path.size() - 1)
+				{
+					PATHNUM++;
+				}
+				else
+				{
+					PATHNUM = 0;
+				}
 	         }
 
 	         if (camIndex > maxCamIndex && !useNodePath)
@@ -1043,20 +1044,21 @@ int generateNewNode(int numNodes)
     bool high = false;
 
     /* For each newNode generated, have every other one expand off of current nodes in the */
-    if(iteration % 2 == 0)
-    {
-        currIdx = rand() % highWeightNodes.size();
-	     curr = highWeightNodes[currIdx];
-	     high = true;
-    }
-    else
-    { 
-        //chose a random node in roadmap until nodes weight is > weightThreshold 
-       /* nodeIndex = rand() % roadMap.size();
-	     curr = roadMap.at(nodeIndex);*/
-        curr = getNodeFromBinWithLeast();
-    }
+    //if(iteration % 2 == 0)
+    //{
+    //    currIdx = rand() % highWeightNodes.size();
+	   //  curr = highWeightNodes[currIdx];
+	   //  high = true;
+    //}
+    //else
+    //{ 
+    //    //chose a random node in roadmap until nodes weight is > weightThreshold 
+    //   /* nodeIndex = rand() % roadMap.size();
+	   //  curr = roadMap.at(nodeIndex);*/
+    //    curr = getNodeFromBinWithLeast();
+    //}
 
+	curr = getNodeFromBinWithLeast();
     newNode.parentIndex = curr.ndex;
     //creates a random anchor point to expand off of
     //cout << "creating new node\n";
@@ -1072,7 +1074,7 @@ int generateNewNode(int numNodes)
     {
 	     highWeightNodes.erase(highWeightNodes.begin() + currIdx);
 	     cout << "REMOVED \n";
-	     //highWeightAvg = (((highWeightAvg * (highWeightNodes.size() + 1)) - curr.weight) / highWeightNodes.size());
+	     highWeightAvg = (((highWeightAvg * (highWeightNodes.size() + 1)) - curr.weight) / highWeightNodes.size());
     }
 
     if (newNode.weight > highLevelCutOff)
@@ -1094,7 +1096,8 @@ int generateNewNode(int numNodes)
 	
     printHits(newNode);
 
-    if (newNode.hitting >= 31)
+   // if (newNode.hitting >= 31)
+	if (newNode.pathLength >= 25)
     {
         cout<<"DONE\n";
 
@@ -1151,7 +1154,15 @@ int generateNewNode(int numNodes)
             for (int i = 0; i < path.size(); i++)
             {
                 outfile << path[i].pos.x << " " << path[i].pos.y << " " << path[i].pos.z << " " 
-                        << path[i].camera.lookAt.x << " " << path[i].camera.lookAt.y  << " " << path[i].camera.lookAt.z << std::endl;
+                        << path[i].camera.lookAt.x << " " << path[i].camera.lookAt.y  << " " << path[i].camera.lookAt.z << " "
+						<< path[i].camera.up.x << " " << path[i].camera.up.y << " " << path[i].camera.up.z << " "
+						<< path[i].camera.eye.x << " " << path[i].camera.eye.y << " " << path[i].camera.eye.z << " "
+						<< path[i].camera.rightV.x << " " << path[i].camera.rightV.y << " " << path[i].camera.rightV.z << " "
+						<< path[i].camera.cameraView[0][0] << " " << path[i].camera.cameraView[0][1] << " " << path[i].camera.cameraView[0][2] << " " << path[i].camera.cameraView[0][3] << " "
+						<< path[i].camera.cameraView[1][0] << " " << path[i].camera.cameraView[1][1] << " " << path[i].camera.cameraView[1][2] << " " << path[i].camera.cameraView[1][3] << " "
+						<< path[i].camera.cameraView[2][0] << " " << path[i].camera.cameraView[2][1] << " " << path[i].camera.cameraView[2][2] << " " << path[i].camera.cameraView[2][3] << " "
+					    << path[i].camera.cameraView[3][0] << " " << path[i].camera.cameraView[3][1] << " " << path[i].camera.cameraView[3][2] << " " << path[i].camera.cameraView[3][3] << " "
+					    << path[i].camera.camSpeed << std::endl;
             }
 
             // Write road map size, average node weight in path, and time to generate path to file
@@ -1170,6 +1181,80 @@ int generateNewNode(int numNodes)
     return 0;
 }
 
+int getPt(int n1, int n2, float perc)
+{
+	int diff = n2 - n1;
+
+	return n1 + (diff * perc);
+}
+
+void parsePathFile()
+{
+	std::ifstream infile(RESOURCE_PATH + pathName);
+	vector<Anchor> tempPath;
+	int pathLength = 0;
+	infile >> pathLength;
+
+	for (int i = 0; i < pathLength; i++)
+	{
+		Anchor newNode;
+
+		newNode.ndex = i;
+		newNode.parentIndex = i - 1;
+
+		if (i == 0)
+		{
+			newNode.root = 1;
+		}
+		else
+		{
+			newNode.root = 0;
+		}
+
+		infile >> newNode.pos.x >> newNode.pos.y >> newNode.pos.z
+			>> newNode.camera.lookAt.x >> newNode.camera.lookAt.y >> newNode.camera.lookAt.z
+			>> newNode.camera.up.x >> newNode.camera.up.y >> newNode.camera.up.z
+			>> newNode.camera.eye.x >> newNode.camera.eye.y >> newNode.camera.eye.z
+			>> newNode.camera.rightV.x >> newNode.camera.rightV.y >> newNode.camera.rightV.z
+			>> newNode.camera.cameraView[0][0] >> newNode.camera.cameraView[0][1] >> newNode.camera.cameraView[0][2] >> newNode.camera.cameraView[0][3]
+			>> newNode.camera.cameraView[1][0] >> newNode.camera.cameraView[1][1] >> newNode.camera.cameraView[1][2] >> newNode.camera.cameraView[1][3]
+			>> newNode.camera.cameraView[2][0] >> newNode.camera.cameraView[2][1] >> newNode.camera.cameraView[2][2] >> newNode.camera.cameraView[2][3]
+			>> newNode.camera.cameraView[3][0] >> newNode.camera.cameraView[3][1] >> newNode.camera.cameraView[3][2] >> newNode.camera.cameraView[3][3]
+			>> newNode.camera.camSpeed;
+		tempPath.push_back(newNode);
+	}
+
+	tempPath.push_back(tempPath[0]);
+	tempPath.push_back(tempPath[1]);
+
+	for (int n = 0; n < pathLength; n++)
+	{
+		path.push_back(tempPath[n]);
+
+		for (float i = 0; i < 1; i += 0.1)
+		{
+			// The Green Line
+			float xa = getPt(tempPath[n].pos.x, tempPath[n + 1].pos.x, i);
+			float ya = getPt(tempPath[n].pos.y, tempPath[n + 1].pos.y, i);
+			float za = getPt(tempPath[n].pos.z, tempPath[n + 1].pos.z, i);
+			float xb = getPt(tempPath[n + 1].pos.x, tempPath[n + 2].pos.x, i);
+			float yb = getPt(tempPath[n + 1].pos.y, tempPath[n + 2].pos.y, i);
+			float zb = getPt(tempPath[n + 1].pos.z, tempPath[n + 2].pos.z, i);
+
+			// The Black Dot
+			float x = getPt(xa, xb, i);
+			float y = getPt(ya, yb, i);
+			float z = getPt(za, zb, i);
+
+			Anchor bNode = tempPath[n + 1];
+			bNode.pos = vec3(x, y, z);
+			path.push_back(bNode);
+		}
+
+		path.push_back(tempPath[n + 2]);
+	}
+}
+
 int main(int argc, char **argv)
 {
     srand ( time(0) );
@@ -1180,10 +1265,14 @@ int main(int argc, char **argv)
 
 	/* we will always need to load external shaders to set up where */
 	if (argc < 3)
-   {
-      cout << "Please specify the resource directory and camera type" << endl;
-      return 0;
-   }
+	{
+		cout << "Wrong format! Try: ./icex resourcesDirectory camera# [path.txt]" << endl;
+		return 0;
+	}
+	else if (argc == 4)
+	{
+		pathName = argv[3];
+	}
 
    RESOURCE_DIR = argv[1] + string("/");
    cameraType = atoi(argv[2]); 
@@ -1297,97 +1386,104 @@ int main(int argc, char **argv)
    
     //testAnchor.checkBBPlanes(Ray(vec3(-100,10,0),vec3(1,0,0)),globalBB,hits, roadMap);
 
-    //USING LAWNMOWERPATH
-    if (useLawnMowerPath)
-    {
-        vec3 minBB = globalBB.min * lawnMowerSizeMin;
-        vec3 maxBB = globalBB.max * lawnMowerSizeMax;
-        float y = maxBB.y + 1;
-        float xIncrement = (maxBB.x - minBB.x) / 6;
+	if (pathName == "")
+	{
+		//USING LAWNMOWERPATH
+		if (useLawnMowerPath)
+		{
+			vec3 minBB = globalBB.min * lawnMowerSizeMin;
+			vec3 maxBB = globalBB.max * lawnMowerSizeMax;
+			float y = maxBB.y + 1;
+			float xIncrement = (maxBB.x - minBB.x) / 6;
 
-        for (int i = 0; i <= 6 ; i += 2)
-        {
-            for (float z = 0; z <= (maxBB.z - minBB.z); z += (maxBB.z - minBB.z) / 700)
-            {
-                Camera c = Camera(vec3(minBB.x + i * xIncrement, y, minBB.z + z), vec3(minBB.x + i * xIncrement + 0.1, 0, minBB.z + z + 0.1), 1); //vec3(globalBB.min.x+x,y+.5,globalBB.min.z+z),1);
-                lawnmower.push_back(c);
-            }
+			for (int i = 0; i <= 6; i += 2)
+			{
+				for (float z = 0; z <= (maxBB.z - minBB.z); z += (maxBB.z - minBB.z) / 700)
+				{
+					Camera c = Camera(vec3(minBB.x + i * xIncrement, y, minBB.z + z), vec3(minBB.x + i * xIncrement + 0.1, 0, minBB.z + z + 0.1), 1); //vec3(globalBB.min.x+x,y+.5,globalBB.min.z+z),1);
+					lawnmower.push_back(c);
+				}
 
-            for (float z = maxBB.z; z >= minBB.z ; z -= (maxBB.z - minBB.z) / 700)
-            {
-                Camera c = Camera(vec3(minBB.x + ((i + 1) * xIncrement), y, z), vec3(minBB.x + (i + 1) * xIncrement - 0.1, 0, z - 0.1), 1); //vec3(globalBB.min.x+x,y+.5,globalBB.min.z+z),1);
-                lawnmower.push_back(c);
-            }
-        }
-    }
+				for (float z = maxBB.z; z >= minBB.z; z -= (maxBB.z - minBB.z) / 700)
+				{
+					Camera c = Camera(vec3(minBB.x + ((i + 1) * xIncrement), y, z), vec3(minBB.x + (i + 1) * xIncrement - 0.1, 0, z - 0.1), 1); //vec3(globalBB.min.x+x,y+.5,globalBB.min.z+z),1);
+					lawnmower.push_back(c);
+				}
+			}
+		}
 
-	// USING NODE PATH 
-    if (useNodePath || cameraType == 0)
-    {
-        vec3 minBB = realMin;
-        vec3 maxBB = realMax;
+		// USING NODE PATH 
+		if (useNodePath || cameraType == 0)
+		{
+			vec3 minBB = realMin;
+			vec3 maxBB = realMax;
 
-        //get sample box information
-        sampleDelta = 10;
-        for (float i = minBB.x; i <= maxBB.x; i += sampleDelta)
-        {
-            for (float j = minBB.y; j <= maxBB.y; j += sampleDelta)
-            {
-                for (float k = minBB.z; k <= maxBB.z; k += sampleDelta)
-                {
-                    vec3 tempLoc = vec3(i, j, k);
-                    if (inBB(tempLoc, realMin, realMax) == false)
-                    {
-	                     anchor.addPosition(tempLoc);
-	                     anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
-	                     grid.push_back(anchor);
-                    }
-                }
-            }
-        }
-	   
-        cout << "grid size: " << grid.size() << "\n";
-	   
-        selectRandomCameras(grid.size() / 2, stratifiedNum);
-	     setCameras();
-	     checkForBBFrustumInterestion();
-	     getAnchorCameraWeights();
-	 	
-        //randomly selects a high weight node to use as root
-        if (highestWeightNodes.size() > 0)
-        {
-            int root = rand() % highestWeightNodes.size();
-            rootNode = highestWeightNodes[root];
+			//get sample box information
+			sampleDelta = 10;
+			for (float i = minBB.x; i <= maxBB.x; i += sampleDelta)
+			{
+				for (float j = minBB.y; j <= maxBB.y; j += sampleDelta)
+				{
+					for (float k = minBB.z; k <= maxBB.z; k += sampleDelta)
+					{
+						vec3 tempLoc = vec3(i, j, k);
+						if (inBB(tempLoc, realMin, realMax) == false)
+						{
+							anchor.addPosition(tempLoc);
+							anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
+							grid.push_back(anchor);
+						}
+					}
+				}
+			}
 
-            //This gives the rootnode a parent for going throught the list later. 
-            rootNode.root = 1;
-            rootNode.pathLength = 0;
-            rootNode.parentIndex = -1;
+			cout << "grid size: " << grid.size() << "\n";
 
-            //sets rootNode in road map
-            rootNode.ndex = 0;
-            roadMap.push_back(rootNode);
-            highWeightNodes.push_back(rootNode);
-            insertIntoSpatialDS(rootNode);
-            highWeightAvg = rootNode.weight;
+			selectRandomCameras(grid.size() / 2, stratifiedNum);
+			setCameras();
+			checkForBBFrustumInterestion();
+			getAnchorCameraWeights();
 
-            int maxNodes = 20;
-            int currNodes = 1;
+			//randomly selects a high weight node to use as root
+			if (highestWeightNodes.size() > 0)
+			{
+				int root = rand() % highestWeightNodes.size();
+				rootNode = highestWeightNodes[root];
+				rootNode.pos = vec3(40, 20, 40);
+				//This gives the rootnode a parent for going throught the list later. 
+				rootNode.root = 1;
+				rootNode.pathLength = 0;
+				rootNode.parentIndex = -1;
 
-            while(generateNewNode(maxNodes - 1) == 0)
-            {
-                //cout << "curNode: " << currNodes << "\n";   
-                currNodes++;
-                
-                //for (int i = 0; i < 5; i++)
-                //{
-                //    cout << i<< ": " << hits[i] <<"\n";
-                //}
+				//sets rootNode in road map
+				rootNode.ndex = 0;
+				roadMap.push_back(rootNode);
+				highWeightNodes.push_back(rootNode);
+				insertIntoSpatialDS(rootNode);
+				highWeightAvg = rootNode.weight;
 
-                //resetHits();
-            }
-        }
-    }
+				int maxNodes = 20;
+				int currNodes = 1;
+
+				while (generateNewNode(maxNodes - 1) == 0)
+				{
+					cout << "curNode: " << currNodes << "\n";
+					currNodes++;
+
+					//for (int i = 0; i < 5; i++)
+					//{
+					//    cout << i<< ": " << hits[i] <<"\n";
+					//}
+
+					//resetHits();
+				}
+			}
+		}
+	}
+	else
+	{
+		parsePathFile();
+	}
 
     // Loop until the user closes the window.
     while(!glfwWindowShouldClose(window))
