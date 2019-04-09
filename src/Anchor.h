@@ -199,39 +199,50 @@ public:
         *lookAt = prev->camera.lookAt + this->velocity;
     }
 
-	void calculatePosition(Anchor *prev, vec3 *pos, vec3 *velocity, vector<Anchor> roadMap)
+	void calculatePosition(Anchor *prev, vec3 *pos, vec3 *velocity, vector<Anchor> roadMap, BoundingBox bb)
 	{
-		*pos = prev->pos;
-		vec3 prevVelocity = normalize(roadMap[this->parentIndex].velocity);
-		/*int isInf = isnan(prevVelocity.x);
-		if (isInf == 1)
-		{
-			prevVelocity.x = rand() / float(RAND_MAX);
-			prevVelocity.y = rand() / float(RAND_MAX);
-			prevVelocity.z = rand() / float(RAND_MAX);
-		}*/
-		//cout << "velocity: " << prevVelocity.x << " " << prevVelocity.y << " " << prevVelocity.z << "\n";
-		
-		float phi = asin(prevVelocity.y);
-		float theta = atan2(prevVelocity.x, prevVelocity.z) - M_PI;
+       bool validPos = false;
+       while (!validPos)
+       {
+           *pos = prev->pos;
+           vec3 prevVelocity = normalize(roadMap[this->parentIndex].velocity);
+           /*int isInf = isnan(prevVelocity.x);
+           if (isInf == 1)
+           {
+               prevVelocity.x = rand() / float(RAND_MAX);
+               prevVelocity.y = rand() / float(RAND_MAX);
+               prevVelocity.z = rand() / float(RAND_MAX);
+           }*/
+           //cout << "velocity: " << prevVelocity.x << " " << prevVelocity.y << " " << prevVelocity.z << "\n";
 
-		float pitchDelta = M_PI * (rand() / float(RAND_MAX));
-		float yawDelta = M_PI * (rand() / float(RAND_MAX));
+           float phi = asin(prevVelocity.y);
+           float theta = atan2(prevVelocity.x, prevVelocity.z) - M_PI;
 
-		phi += pitchDelta;
-		theta += yawDelta;
+           float pitchDelta = M_PI * (rand() / float(RAND_MAX));
+           float yawDelta = M_PI * (rand() / float(RAND_MAX));
 
-		vec3 newVelocity;
-		newVelocity.x = cos(phi) * sin(M_PI + theta);
-		newVelocity.y = sin(phi);
-		newVelocity.z = cos(phi) * cos(M_PI - theta);
+           phi += pitchDelta;
+           theta += yawDelta;
 
-		newVelocity *= auvSpeed;
+           vec3 newVelocity;
+           newVelocity.x = cos(phi) * sin(M_PI + theta);
+           newVelocity.y = sin(phi);
+           newVelocity.z = cos(phi) * cos(M_PI - theta);
 
-		cout << "velocity: " << newVelocity.x << " " << newVelocity.y << " " << newVelocity.z << "\n";
-		this->velocity = newVelocity;
-		*velocity = this->velocity;
-		*pos = prev->pos + this->velocity;
+           newVelocity *= auvSpeed;
+
+           cout << "velocity: " << newVelocity.x << " " << newVelocity.y << " " << newVelocity.z << "\n";
+           this->velocity = newVelocity;
+           *velocity = this->velocity;
+           *pos = prev->pos + this->velocity;
+
+           if ((pos->x < bb.min.x || pos->x > bb.max.x) && 
+               (pos->y < bb.min.y || pos->y > bb.max.y) && 
+               (pos->z < bb.min.z || pos->z > bb.max.z))
+           {
+               validPos = true;
+           }
+       }
 	}
 
 	void calculateLookAt(vec3 *lookAt, vec3 velocity)
@@ -245,10 +256,10 @@ public:
                      BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax){
       vec3 lookAt;
       vec3 position;
-	  vec3 velocity;
+	   vec3 velocity;
 
      
-	  calculatePosition(prev, &position, &velocity, roadMap);
+	  calculatePosition(prev, &position, &velocity, roadMap, bb);
 	  calculateLookAt(&lookAt, velocity);
 	 // setPositionAndLookAt(prev, &lookAt, &position, iteration, roadMap); 
       pos = position;

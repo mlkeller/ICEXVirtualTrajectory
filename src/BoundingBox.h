@@ -13,7 +13,8 @@ struct BoundingBox{
 public:
 	BoundingBox(){
 		min = vec3(1.1754E+38F);
-		max = vec3(-1.1754E+38F);
+		
+      max = vec3(-1.1754E+38F);
 	}
 
 	BoundingBox(vec3 min, vec3 max){
@@ -49,6 +50,9 @@ public:
 		if(b.max.z > max.z){
 			max.z = b.max.z;
 		}
+
+      min *= 1.7f;
+      max *= 1.5f;
 	}
 
 	void setPlanes(){

@@ -93,7 +93,7 @@ float nodeWeightMean=0;
 float highLevelCutOff=0;
 int iteration=0;
 int pitchIteration=0;
-int highestNodeIndex = 0; 
+int highestWeightNodeIndex = 0; 
 int PATHNUM = 0;
 int lawnmowerIndex = 0;
 vector<Anchor> path;
@@ -123,6 +123,7 @@ bool drawBoundingBoxes = false;
 bool drawAnchorPoints = false;
 bool drawGrid = false;
 bool drawNodes = false;
+bool drawPath = false;
 bool drawFrustums = false;
 bool drawMainBB = false;
 bool printLoc = false;
@@ -131,6 +132,9 @@ bool showPath = false;
 bool useLawnMowerPath = false;
 bool useCircularPath = false;
 bool useNodePath = false;
+bool limitByTime = false;
+bool limitByPathLength = false;
+bool limitByViews = false;
 string pathName = "";
 
 //FBO for mirror
@@ -220,7 +224,6 @@ void computeSpatialBB(BoundingBox targetBB)
     std::cout << "Extent y: " << yRealExtent << std::endl;
     std::cout << "Extent z: " << zRealExtent << std::endl;
 
-
     std::cout << "BB min x: " << realMin.x << std::endl;
     std::cout << "BB max x: " << realMax.x << std::endl;
     std::cout << "BB min y: " << realMin.y << std::endl;
@@ -268,7 +271,6 @@ static void initSpatialDS(BoundingBox targetBB)
 }
 
 // can only be called after voxel size is set in initSpatialDS
-//ZJW HERE!!!
 vec3 worldToIndexCoords(vec3 worldCoords)
 {
     vec3 indexCoords = vec3(0);
@@ -367,53 +369,33 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 	     wasdCam.eye += wasdCam.camSpeed*wasdCam.vecU;
 	     wasdCam.lookAt += wasdCam.camSpeed*wasdCam.vecU;
     }
-    else if (key == GLFW_KEY_B)
+    else if (key == GLFW_KEY_B && action == GLFW_PRESS)
     {
-	     drawBoundingBoxes = true;
+	     drawBoundingBoxes = !drawBoundingBoxes;
     }
-    else if (key == GLFW_KEY_N)
+    else if (key == GLFW_KEY_K && action == GLFW_PRESS)
     {
-	     drawBoundingBoxes = false;
+	     drawGrid = !drawGrid;
     }
-    else if (key == GLFW_KEY_K)
+    else if (key == GLFW_KEY_N && action == GLFW_PRESS)
     {
-	     drawGrid = true;
+	     drawNodes = !drawNodes;
     }
-    else if (key == GLFW_KEY_L)
+    else if (key == GLFW_KEY_P && action == GLFW_PRESS)
     {
-	     drawGrid = false;
+	     drawPath = !drawPath;
     }
-    else if (key == GLFW_KEY_O)
+    else if (key == GLFW_KEY_U && action == GLFW_PRESS)
     {
-	     drawNodes = true;
+	     drawAnchorPoints = !drawAnchorPoints;
     }
-    else if (key == GLFW_KEY_P)
+    else if (key == GLFW_KEY_F && action == GLFW_PRESS)
     {
-	     drawNodes = false;
+	     drawFrustums = !drawFrustums;
     }
-    else if (key == GLFW_KEY_U)
+    else if (key == GLFW_KEY_M && action == GLFW_PRESS)
     {
-	     drawAnchorPoints = true;
-    }
-    else if (key == GLFW_KEY_I)
-    {
-	     drawAnchorPoints = false;
-    }
-    else if (key == GLFW_KEY_E)
-    {
-	     drawFrustums = true;
-    }
-    else if (key == GLFW_KEY_R)
-    {
-	     drawFrustums = false;
-    }
-    else if (key == GLFW_KEY_H)
-    {
-	     drawMainBB = true;
-    }
-    else if (key == GLFW_KEY_J)
-    {
-	     drawMainBB = false;
+	     drawMainBB = !drawMainBB;
     }
     else if (key == GLFW_KEY_Z)
     {
@@ -423,7 +405,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
     {
 	     exit(0);
     }
-    else if (key == GLFW_KEY_C)
+    else if (key == GLFW_KEY_C && action == GLFW_PRESS)
     {
 	     if (PATHNUM < path.size() - 1)
 	     {
@@ -438,7 +420,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
     if (drawFrustums == true)
     {
-	     if (key == GLFW_KEY_T)
+	     if (key == GLFW_KEY_T && action == GLFW_PRESS)
         {
 	         if (drawF < Nodes.size() - 1)
             {
@@ -449,7 +431,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 		          drawF = 0;
 		      }
 	     }
-	     if(key == GLFW_KEY_Y)
+	     if (key == GLFW_KEY_Y && action == GLFW_PRESS)
         {
 		      if (drawF > 0)
             {
@@ -784,9 +766,17 @@ static void render()
 
     if (drawNodes)
     {
-	     for (int i = 0; i < Nodes.size(); i++)
+        for (int i = 0; i < Nodes.size(); i++)
         {
-	  	      Nodes[i].draw(M, P, V);
+            Nodes[i].draw(M, P, V);
+        }
+    }
+
+    if (drawPath)
+    {
+	     for (int i = 0; i < path.size(); i++)
+        {
+	  	      path[i].draw(M, P, V);
 	     }
     }
 
@@ -953,6 +943,7 @@ void getAnchorCameraWeights()
 {
     float weightTotal = 0;
     float SD = 0;
+    float curHighestWeight = 0;
 
     cout<< "nodes size: " << Nodes.size() << "\n";
 
@@ -978,6 +969,11 @@ void getAnchorCameraWeights()
 	     if (Nodes[i].weight >= highLevelCutOff)
         {
 	         highestWeightNodes.push_back(Nodes[i]);
+            if (Nodes[i].weight > curHighestWeight)
+            {
+                curHighestWeight = Nodes[i].weight;
+                highestWeightNodeIndex = highestWeightNodes.size() - 1;
+            }
 	     }
     }
 }
@@ -1038,7 +1034,11 @@ void printHits(Anchor newNode)
 int generateNewNode(int numNodes)
 {
     Anchor curr;
-    Anchor newNode = Anchor();
+    Anchor newNode = Anchor(RESOURCE_DIR, "sphere.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "white.png", 1, 0, 0);
+    newNode.initializeShape();
+    newNode.initializeProg();
+    newNode.initializeTexture();
+    newNode.addUniforms();
     int nodeIndex = -1;
     int currIdx;
     bool high = false;
@@ -1058,7 +1058,7 @@ int generateNewNode(int numNodes)
     //    curr = getNodeFromBinWithLeast();
     //}
 
-	curr = getNodeFromBinWithLeast();
+	 curr = getNodeFromBinWithLeast();
     newNode.parentIndex = curr.ndex;
     //creates a random anchor point to expand off of
     //cout << "creating new node\n";
@@ -1067,6 +1067,7 @@ int generateNewNode(int numNodes)
     cout<< "newNode Weight: " << newNode.weight << "\n";
   
     newNode.ndex = roadMap.size();
+    newNode.anchorType = 1;
     roadMap.push_back(newNode);
     insertIntoSpatialDS(newNode);
 
@@ -1092,12 +1093,27 @@ int generateNewNode(int numNodes)
     pitchIteration++;
    
     //cout << "completed\n";
-    cout << "pathLength: " <<newNode.pathLength << "\n";   //WE HAVE A COMPLETE PATH
+    cout << "pathLength: " << newNode.pathLength << "\n";   //WE HAVE A COMPLETE PATH
 	
     printHits(newNode);
 
-   // if (newNode.hitting >= 31)
-	if (newNode.pathLength >= 25)
+    bool limiter = false;
+
+    if (limitByPathLength)
+    {
+        limiter = (newNode.pathLength >= 30);
+    }
+    else if (limitByTime)
+    {
+
+        limiter = (glfwGetTime() >= 400);
+    }
+    else if (limitByViews)
+    {
+        limiter = (newNode.hitting >= 31);
+    }
+
+	 if (limiter)
     {
         cout<<"DONE\n";
 
@@ -1121,6 +1137,7 @@ int generateNewNode(int numNodes)
 
         int p = 0;
         do {
+            newNode.addTransforms(newNode.pos, vec3(1, 1, 1), 0, vec3(0, 0, 0));
             path.push_back(newNode);
             //cout<<"path size: " << path.size() << "\n";
             avgPathWeight += newNode.weight;
@@ -1162,7 +1179,11 @@ int generateNewNode(int numNodes)
 						<< path[i].camera.cameraView[1][0] << " " << path[i].camera.cameraView[1][1] << " " << path[i].camera.cameraView[1][2] << " " << path[i].camera.cameraView[1][3] << " "
 						<< path[i].camera.cameraView[2][0] << " " << path[i].camera.cameraView[2][1] << " " << path[i].camera.cameraView[2][2] << " " << path[i].camera.cameraView[2][3] << " "
 					    << path[i].camera.cameraView[3][0] << " " << path[i].camera.cameraView[3][1] << " " << path[i].camera.cameraView[3][2] << " " << path[i].camera.cameraView[3][3] << " "
-					    << path[i].camera.camSpeed << std::endl;
+						<< path[i].camera.vecU.x << " " << path[i].camera.vecU.y << " " << path[i].camera.vecU.z << " "
+						<< path[i].camera.vecV.x << " " << path[i].camera.vecV.y << " " << path[i].camera.vecV.z << " "
+						<< path[i].camera.vecW.x << " " << path[i].camera.vecW.y << " " << path[i].camera.vecW.z << " "
+						<< path[i].camera.camSpeed
+					<< std::endl;
             }
 
             // Write road map size, average node weight in path, and time to generate path to file
@@ -1181,11 +1202,32 @@ int generateNewNode(int numNodes)
     return 0;
 }
 
-int getPt(int n1, int n2, float perc)
+float getCubicHermite(float flA, float flB, float flC, float flD, float t)
 {
-	int diff = n2 - n1;
+	float a = -0.5f * flA + 1.5f * flB - 1.5f * flC + 0.5f * flD;
+	float b = flA - 2.5f * flB + 2.0f * flC - 0.5f * flD;
+	float c = -0.5f * flA + 0.5f * flC;
+	float d = flB;
 
-	return n1 + (diff * perc);
+	return (a * t * t * t) + (b * t * t) + (c * t) + d;
+}
+
+Anchor getNodeFromPath(vector<Anchor>& tempPath, int index)
+{
+	if (index < 0)
+	{
+		// must be beginning of path
+		return tempPath[0];
+	}
+	else if (index >= tempPath.size())
+	{
+		// end of path
+		return tempPath.back();
+	}
+	else
+	{
+		return tempPath[index];
+	}
 }
 
 void parsePathFile()
@@ -1195,12 +1237,17 @@ void parsePathFile()
 	int pathLength = 0;
 	infile >> pathLength;
 
-	for (int i = 0; i < pathLength; i++)
+	for (int i = 0; i < pathLength; ++i)
 	{
-		Anchor newNode;
+		Anchor newNode = Anchor(RESOURCE_DIR, "sphere.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "white.png", 1, 0, 0);
+      newNode.initializeShape();
+      newNode.initializeProg();
+      newNode.initializeTexture();
+      newNode.addUniforms();
 
 		newNode.ndex = i;
 		newNode.parentIndex = i - 1;
+      newNode.anchorType = 1;
 
 		if (i == 0)
 		{
@@ -1220,38 +1267,67 @@ void parsePathFile()
 			>> newNode.camera.cameraView[1][0] >> newNode.camera.cameraView[1][1] >> newNode.camera.cameraView[1][2] >> newNode.camera.cameraView[1][3]
 			>> newNode.camera.cameraView[2][0] >> newNode.camera.cameraView[2][1] >> newNode.camera.cameraView[2][2] >> newNode.camera.cameraView[2][3]
 			>> newNode.camera.cameraView[3][0] >> newNode.camera.cameraView[3][1] >> newNode.camera.cameraView[3][2] >> newNode.camera.cameraView[3][3]
+			>> newNode.camera.vecU.x >> newNode.camera.vecU.y >> newNode.camera.vecU.z
+			>> newNode.camera.vecV.x >> newNode.camera.vecV.y >> newNode.camera.vecV.z
+			>> newNode.camera.vecW.x >> newNode.camera.vecW.y >> newNode.camera.vecW.z
 			>> newNode.camera.camSpeed;
+
+      newNode.addTransforms(newNode.pos, vec3(1, 1, 1), 0, vec3(0, 0, 0));
 		tempPath.push_back(newNode);
 	}
 
-	tempPath.push_back(tempPath[0]);
-	tempPath.push_back(tempPath[1]);
-
-	for (int n = 0; n < pathLength; n++)
+	// make a new path with hermite interpolation
+	for (int j = 0; j < pathLength * 2 - 1; ++j)
 	{
-		path.push_back(tempPath[n]);
+		float interPercent = j / ((float)(pathLength * 2 - 2));
+		float x, y, z;
+		vec3 u1, v1, w1, u2, v2, w2;
+		float tx = interPercent * (pathLength - 1);
+		float idx = int(tx);
+		float t = tx - floor(tx);
 
-		for (float i = 0; i < 1; i += 0.1)
-		{
-			// The Green Line
-			float xa = getPt(tempPath[n].pos.x, tempPath[n + 1].pos.x, i);
-			float ya = getPt(tempPath[n].pos.y, tempPath[n + 1].pos.y, i);
-			float za = getPt(tempPath[n].pos.z, tempPath[n + 1].pos.z, i);
-			float xb = getPt(tempPath[n + 1].pos.x, tempPath[n + 2].pos.x, i);
-			float yb = getPt(tempPath[n + 1].pos.y, tempPath[n + 2].pos.y, i);
-			float zb = getPt(tempPath[n + 1].pos.z, tempPath[n + 2].pos.z, i);
+		Anchor A = getNodeFromPath(tempPath, idx - 1);
+		Anchor B = getNodeFromPath(tempPath, idx);
+		Anchor C = getNodeFromPath(tempPath, idx + 1);
+		Anchor D = getNodeFromPath(tempPath, idx + 2);
 
-			// The Black Dot
-			float x = getPt(xa, xb, i);
-			float y = getPt(ya, yb, i);
-			float z = getPt(za, zb, i);
+		x = getCubicHermite(A.pos.x, B.pos.x, C.pos.x, D.pos.x, t);
+		y = getCubicHermite(A.pos.y, B.pos.y, C.pos.y, D.pos.y, t);
+		z = getCubicHermite(A.pos.z, B.pos.z, C.pos.z, D.pos.z, t);
+		vec4 newPos = vec4(x, y, z, 1.0f);
 
-			Anchor bNode = tempPath[n + 1];
-			bNode.pos = vec3(x, y, z);
-			path.push_back(bNode);
-		}
+		u1 = B.camera.vecU;
+		v1 = B.camera.vecV;
+		w1 = B.camera.vecW;
+		mat4 cameraUVW1 = mat4(1.0f);
+		cameraUVW1[0] = glm::vec4(u1, 1.0f);
+		cameraUVW1[1] = glm::vec4(v1, 1.0f);
+		cameraUVW1[2] = glm::vec4(w1, 1.0f);
 
-		path.push_back(tempPath[n + 2]);
+		u2 = C.camera.vecU;
+		v2 = C.camera.vecV;
+		w2 = C.camera.vecW;
+		mat4 cameraUVW2 = mat4(1.0f);
+		cameraUVW2[0] = glm::vec4(u2, 1.0f);
+		cameraUVW2[1] = glm::vec4(v2, 1.0f);
+		cameraUVW2[2] = glm::vec4(w2, 1.0f);
+
+		fquat q1 = quat_cast(cameraUVW1);
+		fquat q2 = quat_cast(cameraUVW2);
+		fquat slerp = mix(q1, q2, t);
+		mat4 newCameraUVW = mat4_cast(slerp);
+
+		mat4 newEye = mat4(1.0f);
+		newEye[0][3] = -1.0f * tempPath[idx].camera.eye.x;
+		newEye[1][3] = -1.0f * tempPath[idx].camera.eye.y;
+		newEye[2][3] = -1.0f * tempPath[idx].camera.eye.z;
+		
+		vec4 newView = newCameraUVW * newEye * newPos;
+	
+		Anchor newNode = tempPath[idx];
+		newNode.pos = newPos;
+		newNode.view = newView;
+		path.push_back(newNode);
 	}
 }
 
@@ -1266,16 +1342,17 @@ int main(int argc, char **argv)
 	/* we will always need to load external shaders to set up where */
 	if (argc < 3)
 	{
-		cout << "Wrong format! Try: ./icex resourcesDirectory camera# [path.txt]" << endl;
-		return 0;
+		cout << "Wrong format! Try: ./icex resourcesDirectory camera# limiter# [path.txt]" << endl;
+		return 1;
 	}
-	else if (argc == 4)
+	else if (argc == 5)
 	{
-		pathName = argv[3];
+		pathName = argv[4];
 	}
 
    RESOURCE_DIR = argv[1] + string("/");
    cameraType = atoi(argv[2]); 
+   int limiter = atoi(argv[3]);
 
    if (cameraType == 1)
    {
@@ -1288,6 +1365,29 @@ int main(int argc, char **argv)
    else if (cameraType == 3)
    {
    	useNodePath = true;
+   }
+   else
+   {
+       cout << "Wrong format! Try: ./icex resourcesDirectory camera# limiter# [path.txt]" << endl;
+       return 1;
+   }
+
+   if (limiter == 1)
+   {
+       limitByViews= true;
+   }
+   else if (limiter == 2)
+   {
+       limitByPathLength = true;
+   }
+   else if (limiter == 3)
+   {
+       limitByTime = true;
+   }
+   else
+   {
+       cout << "Wrong format! Try: ./icex resourcesDirectory camera# limiter# [path.txt]" << endl;
+       return 1;
    }
 
     // Set error callback as openGL will report errors but they need a call back
@@ -1447,9 +1547,9 @@ int main(int argc, char **argv)
 			//randomly selects a high weight node to use as root
 			if (highestWeightNodes.size() > 0)
 			{
-				int root = rand() % highestWeightNodes.size();
-				rootNode = highestWeightNodes[root];
-				rootNode.pos = vec3(40, 20, 40);
+				rootNode = highestWeightNodes[highestWeightNodeIndex];
+            rootNode.pos = vec3(globalBB.min.x, globalBB.max.y, globalBB.min.z); //start at upper left corner of bounding box
+            rootNode.camera.lookAt = (rootNode.pos - vec3(globalBB.max.x, globalBB.min.y, globalBB.max.z));
 				//This gives the rootnode a parent for going throught the list later. 
 				rootNode.root = 1;
 				rootNode.pathLength = 0;
