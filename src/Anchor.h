@@ -231,7 +231,7 @@ public:
 
            newVelocity *= auvSpeed;
 
-           cout << "velocity: " << newVelocity.x << " " << newVelocity.y << " " << newVelocity.z << "\n";
+          // cout << "velocity: " << newVelocity.x << " " << newVelocity.y << " " << newVelocity.z << "\n";
            this->velocity = newVelocity;
            *velocity = this->velocity;
            *pos = prev->pos + this->velocity;
@@ -253,45 +253,59 @@ public:
 	}
 
 	void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear, 
-                     BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax){
+                     BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax, bool isValidate){
       vec3 lookAt;
       vec3 position;
 	   vec3 velocity;
 
-     
-	  calculatePosition(prev, &position, &velocity, roadMap, bb);
-	  calculateLookAt(&lookAt, velocity);
-	 // setPositionAndLookAt(prev, &lookAt, &position, iteration, roadMap); 
-      pos = position;
+      if (!isValidate)
+      {
+          calculatePosition(prev, &position, &velocity, roadMap, bb);
+          calculateLookAt(&lookAt, velocity);
 
-      // make sure position is valid
-      if (pos.x < realMin.x)
-      {
-          pos.x = realMin.x;
+          // setPositionAndLookAt(prev, &lookAt, &position, iteration, roadMap); 
+          pos = position;
+
+          // make sure position is valid
+          if (pos.x < realMin.x)
+          {
+              pos.x = realMin.x;
+          }
+          if (pos.y < realMin.y)
+          {
+              pos.y = realMin.y;
+          }
+          if (pos.z < realMin.z)
+          {
+              pos.z = realMin.z;
+          }
+          if (pos.x > realMax.x)
+          {
+              pos.x = realMax.x;
+          }
+          if (pos.y > realMax.y)
+          {
+              pos.y = realMax.y;
+          }
+          if (pos.z > realMax.z)
+          {
+              pos.z = realMax.z;
+          }
+
+          cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
+          cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n";
       }
-      if (pos.y < realMin.y)
+      else
       {
-          pos.y = realMin.y;
-      }
-      if (pos.z < realMin.z)
-      {
-          pos.z = realMin.z;
-      }
-      if (pos.x > realMax.x)
-      {
-          pos.x = realMax.x;
-      }
-      if (pos.y > realMax.y)
-      {
-          pos.y = realMax.y;
-      }
-      if (pos.z > realMax.z)
-      {
-          pos.z = realMax.z;
+          position = prev->pos;
+          lookAt = prev->camera.lookAt;
+          lookAt.y += 30;
+          if (lookAt.y >= 360)
+          {
+              lookAt.y -= 360;
+          }
       }
 
-      cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
-      cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n";
       pathLength = pathlength;
       Camera c = Camera(position, lookAt, 1);
       c.updatePerspective(aspect, 45, zNear, 90);
@@ -352,10 +366,9 @@ public:
       return hit;
    }
 
-   void checkBBPlanes(Ray r, BoundingBox b,int hits[], vector<Anchor> roadMap){
+   void checkBBPlanes(Ray r, BoundingBox b,int hits[], vector<Anchor> roadMap)
+   {
       vector<float> tValues;
-
-
 
       //check plane1
       float t1 = b.plane1.normal.w - dot(r.origin,vec3(b.plane1.normal.x,b.plane1.normal.y,b.plane1.normal.z));
@@ -461,15 +474,15 @@ public:
 
       //If seeing a side and path length increasing 
       weight = intersections/sampleNums;
-      if (parentIndex != -1) {
-         if (this->hitting > roadMap[this->parentIndex].hitting) {
-            weight += (intersections/sampleNums) *.25;
-         }
-         // If weight of a child is greater than weight of parent
-         if (weight > roadMap[this->parentIndex].weight) {
-            weight += .5 * (intersections/sampleNums);
-         }
-      }
+      //if (parentIndex != -1) {
+      //   if (this->hitting > roadMap[this->parentIndex].hitting) {
+      //      weight += (intersections/sampleNums) *.25;
+      //   }
+      //   // If weight of a child is greater than weight of parent
+      //   if (weight > roadMap[this->parentIndex].weight) {
+      //      weight += .5 * (intersections/sampleNums);
+      //   }
+      //}
 
 
       //cout << "intersections: " << intersections << "\n"; 
