@@ -26,6 +26,9 @@
 #include "Plane.h"
 #include "funcs.h"
 #include "Voxel.h"
+#include "TextureKole.hpp"
+#include "Framebuffer.hpp"
+#include "Image.hpp"
 //#include "PRMNode.h"
 //#include "BosPRMAlg.h"
 
@@ -121,6 +124,7 @@ vector<Camera> lawnmower;
 bool drawBoundingBoxes = false;
 bool drawAnchorPoints = false;
 bool drawGrid = false;
+bool drawSDS = false;
 bool drawNodes = false;
 bool drawPath = false;
 bool drawFrustums = false;
@@ -171,6 +175,7 @@ float zRealExtent = 0;
 float voxelSize = 0; // currently use max extent
 typedef vector<vector<vector<Voxel>>> SpatialDataStructure;
 SpatialDataStructure grid3D; // 3D grid of voxels, voxels contain PRM nodes
+vector<Anchor> validationGrid;
 
 void computeSpatialBB(BoundingBox targetBB)
 {
@@ -238,6 +243,77 @@ float getMaxExtent()
     return std::max(std::max(xRealExtent, yRealExtent), zRealExtent);
 }
 
+
+bool inBB(vec3 loc, vec3 min, vec3 max)
+{
+    int x = 0;
+    int y = 0;
+    int z = 0;
+
+    if (loc.x < max.x && loc.x > min.x)
+    {
+        x = 1;
+    }
+    if (loc.y < max.y && loc.y > min.y)
+    {
+        y = 1;
+    }
+    if (loc.z < max.z && loc.z > min.z)
+    {
+        z = 1;
+    }
+
+    if (x == 1 && y == 1 && z == 1)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+// can only be called after voxel size is set in initSpatialDS
+vec3 worldToIndexCoords(vec3 worldCoords)
+{
+    vec3 indexCoords = vec3(0);
+
+    /*std::cout << "World Coord X: " << worldCoords.x << std::endl;
+    std::cout << "World Coord Y: " << worldCoords.y << std::endl;
+    std::cout << "World Coord Z: " << worldCoords.z << std::endl;*/
+
+    indexCoords.x = std::floor((worldCoords.x - realMin.x) / voxelSize);
+    indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
+    indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
+
+    /*  std::cout << "Index Coord X: " << indexCoords.x << std::endl;
+      std::cout << "Index Coord Y: " << indexCoords.y << std::endl;
+      std::cout << "Index Coord Z: " << indexCoords.z << std::endl;*/
+
+    return indexCoords;
+}
+
+vec3 indexToWorldCoords(vec3 indexCoords)
+{
+    vec3 worldCoords = vec3(0);
+
+    /*  std::cout << "Index Coord X: " << indexCoords.x << std::endl;
+       std::cout << "Index Coord Y: " << indexCoords.y << std::endl;
+       std::cout << "Index Coord Z: " << indexCoords.z << std::endl;*/
+
+    indexCoords.x = std::floor((worldCoords.x - realMin.x) / voxelSize);
+    indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
+    indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
+
+    worldCoords.x = indexCoords.x * voxelSize + realMin.x;
+    worldCoords.y = indexCoords.y * voxelSize + realMin.y;
+    worldCoords.z = indexCoords.z * voxelSize + realMin.z;
+    
+     /*std::cout << "World Coord X: " << worldCoords.x << std::endl;
+     std::cout << "World Coord Y: " << worldCoords.y << std::endl;
+     std::cout << "World Coord Z: " << worldCoords.z << std::endl;*/
+
+    return worldCoords;
+}
+
 // set up spatial data structure (3D grid of voxels)
 static void initSpatialDS(BoundingBox targetBB)
 {
@@ -271,24 +347,24 @@ static void initSpatialDS(BoundingBox targetBB)
     grid3D = tempGrid;
 }
 
-// can only be called after voxel size is set in initSpatialDS
-vec3 worldToIndexCoords(vec3 worldCoords)
+void createValidationGrid()
 {
-    vec3 indexCoords = vec3(0);
-
-    /*std::cout << "World Coord X: " << worldCoords.x << std::endl;
-    std::cout << "World Coord Y: " << worldCoords.y << std::endl;
-    std::cout << "World Coord Z: " << worldCoords.z << std::endl;*/
-
-    indexCoords.x = std::floor((worldCoords.x - realMin.x) / voxelSize);
-    indexCoords.y = std::floor((worldCoords.y - realMin.y) / voxelSize);
-    indexCoords.z = std::floor((worldCoords.z - realMin.z) / voxelSize);
-
-  /*  std::cout << "Index Coord X: " << indexCoords.x << std::endl;
-    std::cout << "Index Coord Y: " << indexCoords.y << std::endl; 
-    std::cout << "Index Coord Z: " << indexCoords.z << std::endl;*/
-
-    return indexCoords;
+    unsigned char* buffer = new unsigned char[xRealExtent*zRealExtent];
+    for (int x = globalBB.min.x * 2; x < globalBB.max.x * 2; x++)
+    {
+        for (int z = globalBB.min.z * 2; z < globalBB.max.z * 2; z++)
+        {
+            vec3 tempLoc = vec3(x, validationCell.y, z);
+            if (inBB(tempLoc, realMin, realMax) == false && x%15==0 && z%15==0)
+            {
+                //  vec3 pos = indexToWorldCoords(vec3(tempLoc));
+                anchor.addPosition(tempLoc);
+                //  anchor.pos = pos;
+                anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
+                validationGrid.push_back(anchor);
+            }
+        }
+    }
 }
 
 void insertIntoSpatialDS(Anchor node)
@@ -329,7 +405,6 @@ Anchor getNodeFromBinWithLeast()
     }
 
     int nodeIndex = rand() % smallestBin.getPRMNodes().size();
-
     return smallestBin.getPRMNodes().at(nodeIndex);
 }
 
@@ -377,6 +452,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
     else if (key == GLFW_KEY_K && action == GLFW_PRESS)
     {
 	     drawGrid = !drawGrid;
+    }
+    else if (key == GLFW_KEY_R && action == GLFW_PRESS)
+    {
+        drawSDS = !drawSDS;
     }
     else if (key == GLFW_KEY_N && action == GLFW_PRESS)
     {
@@ -774,6 +853,14 @@ static void render()
 	     }
     }
 
+    if (drawSDS)
+    {
+        for (int i = 0; i < validationGrid.size(); i++)
+        {
+            validationGrid[i].draw(M, P, V);
+        }
+    }
+
     if (drawNodes)
     {
         for (int i = 0; i < Nodes.size(); i++)
@@ -888,33 +975,6 @@ void setCameras()
 	     frustumObj.setUp(anchorPts[i].camera.frustum);
 	     anchorPts[i].fObj = frustumObj;
     }
-}
-
-bool inBB(vec3 loc, vec3 min, vec3 max)
-{
-    int x = 0;
-    int y = 0;
-    int z = 0;
-
-    if (loc.x < max.x && loc.x > min.x)
-    {
-	     x = 1;
-    }
-    if (loc.y < max.y && loc.y > min.y)
-    {
-	     y = 1;
-    }
-    if (loc.z < max.z && loc.z > min.z)
-    {
-	     z = 1;
-    }
-
-    if (x == 1 && y == 1 && z == 1)
-    {
-	     return true;
-    }
-
-    return false;
 }
 
 bool boxFrustumIntersectionTest(Frustum fru)
@@ -1057,14 +1117,35 @@ int generateNewNode(int numNodes)
         roadMap.push_back(rootNode);
         Anchor prevNode = rootNode;
 
-        for (int i = 0; i < 11; i++)
+        for (int i = 0; i < validationGrid.size(); i++)
         {
             newNode = Anchor(RESOURCE_DIR, "sphere.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "white.png", 1, 0, 0);
             newNode.initializeShape();
             newNode.initializeProg();
             newNode.initializeTexture();
             newNode.addUniforms();
-            newNode.createAnchor(pitchIteration, &prevNode, numNodes, i + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
+            newNode.root = 0;
+            newNode.parentIndex = i;
+            newNode.pathLength = i + 1;
+            newNode.ndex = i + 1;
+            newNode.pos = validationCell;
+            vec3 newLookAt = validationCell - validationGrid[i].pos;
+            newNode.camera.lookAt = newLookAt;
+            newNode.createAnchor(pitchIteration, &prevNode, &newNode, numNodes, i + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
+            roadMap.push_back(newNode);
+            validationGrid[i].weight = newNode.weight;
+            prevNode = newNode;
+           // cout << "validation weight: " << newNode.weight << endl;
+        }
+
+        /*for (int i = 0; i < 11; i++)
+        {
+            newNode = Anchor(RESOURCE_DIR, "sphere.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "white.png", 1, 0, 0);
+            newNode.initializeShape();
+            newNode.initializeProg();
+            newNode.initializeTexture();
+            newNode.addUniforms();
+            newNode.createAnchor(pitchIteration, &prevNode, &newNode, numNodes, i + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
             newNode.root = 0;
             newNode.parentIndex = i;
             newNode.pathLength = i + 1;
@@ -1080,7 +1161,7 @@ int generateNewNode(int numNodes)
             prevNode = newNode;
             cout << "validation weight: " << newNode.weight << endl;
         }
-
+*/
         limiter = true;
     }
     else
@@ -1114,7 +1195,7 @@ int generateNewNode(int numNodes)
         newNode.parentIndex = curr.ndex;
         //creates a random anchor point to expand off of
         //cout << "creating new node\n";
-        newNode.createAnchor(pitchIteration, &curr, numNodes, curr.pathLength + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
+        newNode.createAnchor(pitchIteration, &curr, &curr, numNodes, curr.pathLength + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
         cout << "high level: " << highLevelCutOff << "\n";
         cout << "newNode Weight: " << newNode.weight << "\n";
 
@@ -1151,7 +1232,7 @@ int generateNewNode(int numNodes)
 
         if (limitByPathLength)
         {
-            limiter = (newNode.pathLength >= 15);
+            limiter = (newNode.pathLength >= 5);
         }
         else if (limitByTime)
         {
@@ -1201,6 +1282,20 @@ int generateNewNode(int numNodes)
             p++;
 
         } while(newNode.root != 1);
+
+        unsigned char* imgbuffer = new unsigned char[((xRealExtent*zRealExtent) / 450.0) * 3.0];
+        cout << "imgbuf size: " << ((xRealExtent*zRealExtent) / 450.0) * 3.0 << endl;
+        cout << "valid grid size: " << validationGrid.size() << endl;
+        size_t offset = 0;
+        for (const Anchor& anchor : validationGrid) {
+            imgbuffer[offset*3] = (unsigned char) (anchor.weight*255);
+            imgbuffer[offset * 3 + 1] = 0;
+            imgbuffer[offset * 3 + 2] = 0;
+            offset++;
+        }
+
+        Image image = Image(imgbuffer, xRealExtent, zRealExtent, 3, 1);
+        image.writeFile("Lesgo.png");
 
         cout << "path size: " << path.size() << "\n";
 
@@ -1392,6 +1487,8 @@ int main(int argc, char **argv)
     g_height = 800;
     aspect = g_width / g_height;
 
+    
+
     /* we will always need to load external shaders to set up where */
     if (argc < 3)
     {
@@ -1537,6 +1634,8 @@ int main(int argc, char **argv)
     globalBBscale = vec3((globalBB.max.x - globalBB.min.x)/2.0,(globalBB.max.y - globalBB.min.y)/2.0,(globalBB.max.z - globalBB.min.z)/2.0);	
     globalBBtrans = vec3(avg(globalBB.min.x,globalBB.max.x),avg(globalBB.min.y,globalBB.max.y),avg(globalBB.min.z,globalBB.max.z));
 
+    createValidationGrid();
+    
     //TEST CONTINUED 
     //testAnchor.camera = testCam; 
     //cout << "Roadmap size: " << roadMap.size() << "\n";

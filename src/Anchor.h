@@ -252,7 +252,7 @@ public:
 		*lookAt = cross(velocity, right);
 	}
 
-	void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear, 
+	void createAnchor(int iteration,Anchor *prev, Anchor *cur, int numNodes, int pathlength, float aspect, float zNear,
                      BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax, bool isValidate){
       vec3 lookAt;
       vec3 position;
@@ -297,13 +297,8 @@ public:
       }
       else
       {
-          position = prev->pos;
-          lookAt = prev->camera.lookAt;
-          lookAt.y += 30;
-          if (lookAt.y >= 360)
-          {
-              lookAt.y -= 360;
-          }
+          position = cur->pos;
+          lookAt = cur->camera.lookAt;
       }
 
       pathLength = pathlength;
@@ -407,8 +402,6 @@ public:
       if(t5 > 0){
          tValues.push_back(t5);
       }
-
-
       
       sort(tValues.begin(), tValues.end());
       //tValues.sort();
@@ -492,6 +485,7 @@ public:
    void addPosition(vec3 loc){
       pos = loc;
    }
+
 
    void addObjInfo(string dir, string Mesh, string vertShader, string fragShader, string texture, int textNum, int textType, int sType){
       RESOURCE_DIR = dir;
