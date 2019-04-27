@@ -307,7 +307,14 @@ public:
       c.setRayParameters(1,200);
       c.createFrustum();
       setCamera(c,c.startPos.y);
-      getWeight(bb, hits, roadMap);
+      if (isValidate && cur->weight == -1)
+      {
+          weight = 0.0f;
+      }
+      else
+      {
+          getWeight(bb, hits, roadMap);
+      }
    }
 
    void setCamera(Camera c,float Depth){

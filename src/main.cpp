@@ -355,12 +355,23 @@ void createValidationGrid()
         for (int z = globalBB.min.z * 2; z < globalBB.max.z * 2; z++)
         {
             vec3 tempLoc = vec3(x, validationCell.y, z);
-            if (inBB(tempLoc, realMin, realMax) == false && x%15==0 && z%15==0)
+            if (inBB(tempLoc, realMin, realMax) == false)
             {
-                //  vec3 pos = indexToWorldCoords(vec3(tempLoc));
+                if (x % 20 == 0 && z % 20 == 0)
+                {
+                    //  vec3 pos = indexToWorldCoords(vec3(tempLoc));
+                    anchor.addPosition(tempLoc);
+                    //  anchor.pos = pos;
+                    anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
+                    validationGrid.push_back(anchor);
+                }
+            }
+            else
+            {
                 anchor.addPosition(tempLoc);
                 //  anchor.pos = pos;
                 anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
+                anchor.weight = -1.0f;
                 validationGrid.push_back(anchor);
             }
         }
@@ -1283,8 +1294,8 @@ int generateNewNode(int numNodes)
 
         } while(newNode.root != 1);
 
-        unsigned char* imgbuffer = new unsigned char[((xRealExtent*zRealExtent) / 450.0) * 3.0];
-        cout << "imgbuf size: " << ((xRealExtent*zRealExtent) / 450.0) * 3.0 << endl;
+        unsigned char* imgbuffer = new unsigned char[((xRealExtent*zRealExtent) / 400.0) * 3.0];
+        cout << "imgbuf size: " << ((xRealExtent*zRealExtent) / 400.0) * 3.0 << endl;
         cout << "valid grid size: " << validationGrid.size() << endl;
         size_t offset = 0;
         for (const Anchor& anchor : validationGrid) {
@@ -1294,8 +1305,8 @@ int generateNewNode(int numNodes)
             offset++;
         }
 
-        Image image = Image(imgbuffer, xRealExtent, zRealExtent, 3, 1);
-        image.writeFile("Lesgo.png");
+        Image image = Image(imgbuffer, xRealExtent / 5.0, zRealExtent / 5.0, 3, 1);
+        image.writeFile("slice.png");
 
         cout << "path size: " << path.size() << "\n";
 
