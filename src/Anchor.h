@@ -176,7 +176,7 @@ public:
         // cout << "yaw: " << yaw.x << " " << yaw.y << " " << yaw.z << "\n";
         // cout << "pitch: " << pitch.x << " " << pitch.y << " " << pitch.z << "\n";
         *pos = prev->pos + this->velocity;
-        cout << "pos: " << pos->x << " " << pos->y << " " << pos->z << "\n";
+        //cout << "pos: " << pos->x << " " << pos->y << " " << pos->z << "\n";
 
 
 
@@ -292,8 +292,8 @@ public:
               pos.z = realMax.z;
           }
 
-          cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
-          cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n";
+         /* cout << "pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
+          cout << "lookAt: " << lookAt.x << " " << lookAt.y << " " << lookAt.z << "\n"; */
       }
       else
       {

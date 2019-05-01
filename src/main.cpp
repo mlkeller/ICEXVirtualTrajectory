@@ -357,23 +357,23 @@ void createValidationGrid()
             vec3 tempLoc = vec3(x, validationCell.y, z);
             if (inBB(tempLoc, realMin, realMax) == false)
             {
-                if (x % 20 == 0 && z % 20 == 0)
+                if (x % 15 == 0 && z % 15 == 0)
                 {
                     //  vec3 pos = indexToWorldCoords(vec3(tempLoc));
                     anchor.addPosition(tempLoc);
                     //  anchor.pos = pos;
-                    anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
+                    anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(1, 1, 1));
                     validationGrid.push_back(anchor);
                 }
             }
-            else
-            {
-                anchor.addPosition(tempLoc);
-                //  anchor.pos = pos;
-                anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(0, 0, 0));
-                anchor.weight = -1.0f;
-                validationGrid.push_back(anchor);
-            }
+            //else
+            //{
+            //    anchor.weight = -1.0f;
+            //    anchor.addPosition(tempLoc);
+            //    //  anchor.pos = pos;
+            //    anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(1, 1, 1));
+            //    validationGrid.push_back(anchor);
+            //}
         }
     }
 }
@@ -414,7 +414,8 @@ Anchor getNodeFromBinWithLeast()
             }
         }
     }
-
+    float space = float(grid3D[0][0].size() * grid3D[0].size() * grid3D.size());
+    cout << "Percent of Space Occupied: " << float(count) / space << endl;
     int nodeIndex = rand() % smallestBin.getPRMNodes().size();
     return smallestBin.getPRMNodes().at(nodeIndex);
 }
@@ -746,7 +747,7 @@ static void render()
 	     c.updatePerspective(aspect, 45, zNear, 90);
 	     c.setRayParameters(1,200);
 	     c.createFrustum();
-	     cout << "Weight: " << newNode.weight << "\n";
+	    // cout << "Weight: " << newNode.weight << "\n";
     }
 
     //camera 
@@ -1187,19 +1188,19 @@ int generateNewNode(int numNodes)
         int currIdx;
         bool high = false;
 
-        /* For each newNode generated, have every other one expand off of current nodes in the */
-        //if(iteration % 2 == 0)
+        ///* For each newNode generated, have every other one expand off of current nodes in the */
+        //if(iteration % 2 == 1)
         //{
-        //    currIdx = rand() % highWeightNodes.size();
-          //  curr = highWeightNodes[currIdx];
-          //  high = true;
+        //    curr = getNodeFromBinWithLeast();
         //}
         //else
         //{ 
         //    //chose a random node in roadmap until nodes weight is > weightThreshold 
-        //   /* nodeIndex = rand() % roadMap.size();
-          //  curr = roadMap.at(nodeIndex);*/
-        //    curr = getNodeFromBinWithLeast();
+        //    do
+        //    {
+        //        nodeIndex = rand() % Nodes.size();
+        //        curr = Nodes.at(nodeIndex);
+        //    } while (curr.weight < 0.8f);
         //}
 
         curr = getNodeFromBinWithLeast();
@@ -1207,20 +1208,20 @@ int generateNewNode(int numNodes)
         //creates a random anchor point to expand off of
         //cout << "creating new node\n";
         newNode.createAnchor(pitchIteration, &curr, &curr, numNodes, curr.pathLength + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
-        cout << "high level: " << highLevelCutOff << "\n";
-        cout << "newNode Weight: " << newNode.weight << "\n";
+       // cout << "high level: " << highLevelCutOff << "\n";
+       // cout << "newNode Weight: " << newNode.weight << "\n";
 
         newNode.ndex = roadMap.size();
         newNode.anchorType = 1;
         roadMap.push_back(newNode);
         insertIntoSpatialDS(newNode);
 
-        if (curr.weight < highWeightAvg && high == true)
+        /*if (curr.weight < highWeightAvg && high == true)
         {
             highWeightNodes.erase(highWeightNodes.begin() + currIdx);
             cout << "REMOVED \n";
             highWeightAvg = (((highWeightAvg * (highWeightNodes.size() + 1)) - curr.weight) / highWeightNodes.size());
-        }
+        }*/
 
         if (newNode.weight > highLevelCutOff)
         {
@@ -1231,7 +1232,7 @@ int generateNewNode(int numNodes)
             highLevelCutOff = 0.6 * highWeightAvg;
             cout << "new node added to map: " << roadMap.size() << "\n";
         }
-        cout << "Average: " << highWeightAvg << "\n";
+       // cout << "Average: " << highWeightAvg << "\n";
 
         iteration++;
         pitchIteration++;
@@ -1243,7 +1244,7 @@ int generateNewNode(int numNodes)
 
         if (limitByPathLength)
         {
-            limiter = (newNode.pathLength >= 5);
+            limiter = (newNode.pathLength >= 10);
         }
         else if (limitByTime)
         {
@@ -1294,8 +1295,8 @@ int generateNewNode(int numNodes)
 
         } while(newNode.root != 1);
 
-        unsigned char* imgbuffer = new unsigned char[((xRealExtent*zRealExtent) / 400.0) * 3.0];
-        cout << "imgbuf size: " << ((xRealExtent*zRealExtent) / 400.0) * 3.0 << endl;
+        unsigned char* imgbuffer = new unsigned char[((xRealExtent*zRealExtent) / 450.0) * 3.0];
+        cout << "imgbuf size: " << ((xRealExtent*zRealExtent) / 450.0) * 3.0 << endl;
         cout << "valid grid size: " << validationGrid.size() << endl;
         size_t offset = 0;
         for (const Anchor& anchor : validationGrid) {
@@ -1305,7 +1306,7 @@ int generateNewNode(int numNodes)
             offset++;
         }
 
-        Image image = Image(imgbuffer, xRealExtent / 5.0, zRealExtent / 5.0, 3, 1);
+        Image image = Image(imgbuffer, xRealExtent / 15.0, zRealExtent / 15.0, 3, 1);
         image.writeFile("slice.png");
 
         cout << "path size: " << path.size() << "\n";
