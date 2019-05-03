@@ -202,6 +202,7 @@ public:
 	void calculatePosition(Anchor *prev, vec3 *pos, vec3 *velocity, vector<Anchor> roadMap, BoundingBox bb)
 	{
        bool validPos = false;
+       int count = 0;
        while (!validPos)
        {
            *pos = prev->pos;
@@ -225,9 +226,9 @@ public:
            theta += yawDelta;
 
            vec3 newVelocity;
-           newVelocity.x = cos(phi) * sin(M_PI + theta);
-           newVelocity.y = sin(phi);
-           newVelocity.z = cos(phi) * cos(M_PI - theta);
+           newVelocity.x = cos(phi) * sin(M_PI + theta) * 5.0f;
+           newVelocity.y = sin(phi) * 5.0f;
+           newVelocity.z = cos(phi) * cos(M_PI - theta) * 5.0f;
 
            newVelocity *= auvSpeed;
 
@@ -236,11 +237,18 @@ public:
            *velocity = this->velocity;
            *pos = prev->pos + this->velocity;
 
-           if ((pos->x < bb.min.x || pos->x > bb.max.x) && 
-               (pos->y < bb.min.y || pos->y > bb.max.y) && 
+           if ((pos->x < bb.min.x || pos->x > bb.max.x) || 
+               (pos->y < bb.min.y || pos->y > bb.max.y) || 
                (pos->z < bb.min.z || pos->z > bb.max.z))
            {
                validPos = true;
+           }
+           count++;
+
+           if (count >= 5)
+           {
+               *pos = -1.0f * prev->pos;
+               *velocity = -1.0f * prev->velocity;
            }
        }
 	}
@@ -252,7 +260,7 @@ public:
 		*lookAt = cross(velocity, right);
 	}
 
-	void createAnchor(int iteration,Anchor *prev, Anchor *cur, int numNodes, int pathlength, float aspect, float zNear,
+	void createAnchor(int iteration,Anchor *prev, int numNodes, int pathlength, float aspect, float zNear,
                      BoundingBox bb, int hits[], vector<Anchor> roadMap, vec3 realMin, vec3 realMax, bool isValidate){
       vec3 lookAt;
       vec3 position;
@@ -297,8 +305,8 @@ public:
       }
       else
       {
-          position = cur->pos;
-          lookAt = cur->camera.lookAt;
+          position = this->pos;
+          lookAt = this->camera.lookAt;
       }
 
       pathLength = pathlength;
@@ -307,7 +315,7 @@ public:
       c.setRayParameters(1,200);
       c.createFrustum();
       setCamera(c,c.startPos.y);
-      if (isValidate && cur->weight == -1)
+      if (isValidate && this->weight == -1)
       {
           weight = 0.0f;
       }
@@ -473,16 +481,16 @@ public:
       }
 
       //If seeing a side and path length increasing 
-      weight = intersections/sampleNums;
-      //if (parentIndex != -1) {
-      //   if (this->hitting > roadMap[this->parentIndex].hitting) {
-      //      weight += (intersections/sampleNums) *.25;
-      //   }
-      //   // If weight of a child is greater than weight of parent
-      //   if (weight > roadMap[this->parentIndex].weight) {
-      //      weight += .5 * (intersections/sampleNums);
-      //   }
-      //}
+      weight = intersections/sampleNums * 0.5f;
+      if (parentIndex != -1) {
+         if (this->hitting > roadMap[this->parentIndex].hitting) {
+            weight += (intersections/sampleNums) * 0.25f;
+         }
+         // If weight of a child is greater than weight of parent
+         if (weight > roadMap[this->parentIndex].weight) {
+            weight += 0.5f * (intersections/sampleNums);
+         }
+      }
 
 
       //cout << "intersections: " << intersections << "\n"; 

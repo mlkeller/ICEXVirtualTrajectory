@@ -9,6 +9,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <time.h>
+#include <unordered_map>
 #include <queue>
 #include "GLSL.h"
 #include "glm/ext.hpp"
@@ -116,7 +117,7 @@ Obj boundingBox;
 
 FrustumObj frustumObj, frustumObjTest; 
 Anchor anchor;
-BoundingBox globalBB = BoundingBox();
+BoundingBox wreckBB = BoundingBox();
 
 vector<Camera> lawnmower; 
 
@@ -164,17 +165,35 @@ int sampleNums = 1500;
 int stratifiedNum = 10;
 int drawF = 0;
 
-vec3 globalBBtrans, globalBBscale;
+vec3 wreckBBtrans, wreckBBscale;
 
 // Spatial Data Structure
 vec3 realMin = vec3(1.1754E+38F);
 vec3 realMax = vec3(-1.1754E+38F);
-float xRealExtent = 0;
-float yRealExtent = 0;
-float zRealExtent = 0;
-float voxelSize = 0; // currently use max extent
-typedef vector<vector<vector<Voxel>>> SpatialDataStructure;
-SpatialDataStructure grid3D; // 3D grid of voxels, voxels contain PRM nodes
+float xRealExtent = 0.0f;
+float yRealExtent = 0.0f;
+float zRealExtent = 0.0f;
+float dimSDSx = 0.0f;
+float dimSDSy = 0.0f;
+float dimSDSz = 0.0f;
+float voxelSize = 0.0f; // currently use max extent
+
+struct KeyFuncs
+{
+    size_t operator()(const vec3& k)const
+    {
+        return std::hash<float>()(k.x) + std::hash<float>()(k.y) + std::hash<float>()(k.z);
+    }
+
+    bool operator()(const vec3& a, const vec3& b)const
+    {
+        return a.x == b.x && a.y == b.y && a.z == b.z;
+    }
+};
+
+
+typedef unordered_map<vec3, Voxel, KeyFuncs, KeyFuncs> SpatialDataStructure; // hasmap representing 3D grid of voxels, voxels contain PRM nodes
+SpatialDataStructure grid3D;
 vector<Anchor> validationGrid;
 
 void computeSpatialBB(BoundingBox targetBB)
@@ -226,16 +245,24 @@ void computeSpatialBB(BoundingBox targetBB)
     yRealExtent = realMax.y - realMin.y;
     zRealExtent = realMax.z - realMin.z;
 
-    std::cout << "Extent x: " << xRealExtent << std::endl;
-    std::cout << "Extent y: " << yRealExtent << std::endl;
-    std::cout << "Extent z: " << zRealExtent << std::endl;
+    voxelSize = 1.0f;  //maxExtent, 1/2 speed auv travels
+    // std::cout << "Voxel size: " << voxelSize << std::endl;
 
-    std::cout << "BB min x: " << realMin.x << std::endl;
-    std::cout << "BB max x: " << realMax.x << std::endl;
-    std::cout << "BB min y: " << realMin.y << std::endl;
-    std::cout << "BB max y: " << realMax.y << std::endl;
-    std::cout << "BB min z: " << realMin.z << std::endl;
-    std::cout << "BB max z: " << realMax.z << std::endl;
+    // set x, y, and z dimensions of data structure
+    dimSDSx = xRealExtent / voxelSize + 1;
+    dimSDSy = yRealExtent / voxelSize + 1;
+    dimSDSz = zRealExtent / voxelSize + 1;
+
+    //std::cout << "Extent x: " << xRealExtent << std::endl;
+    //std::cout << "Extent y: " << yRealExtent << std::endl;
+    //std::cout << "Extent z: " << zRealExtent << std::endl;
+
+    //std::cout << "BB min x: " << realMin.x << std::endl;
+    //std::cout << "BB max x: " << realMax.x << std::endl;
+    //std::cout << "BB min y: " << realMin.y << std::endl;
+    //std::cout << "BB max y: " << realMax.y << std::endl;
+    //std::cout << "BB min z: " << realMin.z << std::endl;
+    //std::cout << "BB max z: " << realMax.z << std::endl;
 }
 
 float getMaxExtent()
@@ -274,7 +301,7 @@ bool inBB(vec3 loc, vec3 min, vec3 max)
 // can only be called after voxel size is set in initSpatialDS
 vec3 worldToIndexCoords(vec3 worldCoords)
 {
-    vec3 indexCoords = vec3(0);
+    vec3 indexCoords = vec3(0.0f);
 
     /*std::cout << "World Coord X: " << worldCoords.x << std::endl;
     std::cout << "World Coord Y: " << worldCoords.y << std::endl;
@@ -314,48 +341,48 @@ vec3 indexToWorldCoords(vec3 indexCoords)
     return worldCoords;
 }
 
-// set up spatial data structure (3D grid of voxels)
-static void initSpatialDS(BoundingBox targetBB)
-{
-    computeSpatialBB(targetBB);
-
-    voxelSize = 0.816;  //maxExtent, 1/2 speed auv travels
-    // std::cout << "Voxel size: " << voxelSize << std::endl;
-
-    // set x, y, and z dimensions of data structure
-    int dimX = xRealExtent / voxelSize + 1;
-    int dimY = yRealExtent / voxelSize + 1;
-    int dimZ = zRealExtent / voxelSize + 1;
-  /*  std::cout << "Dim x: " << dimX << std::endl;
-    std::cout << "Dim y: " << dimY << std::endl;
-    std::cout << "Dim z: " << dimZ << std::endl;*/
-
-    vector<vector<vector<Voxel>>> tempGrid(dimX, vector<vector<Voxel>>(dimY, vector<Voxel>(dimZ)));
-    
-    // fill in 3D grid with voxels
-    for (int x = 0; x < dimX; x++)
-    {
-        for (int y = 0; y < dimY; y++)
-        {
-            for (int z = 0; z < dimZ; z++)
-            {
-                tempGrid[x][y][z] = Voxel();
-            }
-        }
-    }
-
-    grid3D = tempGrid;
-}
+//// set up spatial data structure (3D grid of voxels)
+//static void initSpatialDS(BoundingBox targetBB)
+//{
+//    computeSpatialBB(targetBB);
+//
+//    voxelSize = 1.0f;  //maxExtent, 1/2 speed auv travels
+//    // std::cout << "Voxel size: " << voxelSize << std::endl;
+//
+//    // set x, y, and z dimensions of data structure
+//    int dimX = xRealExtent / voxelSize + 1;
+//    int dimY = yRealExtent / voxelSize + 1;
+//    int dimZ = zRealExtent / voxelSize + 1;
+//  /*  std::cout << "Dim x: " << dimX << std::endl;
+//    std::cout << "Dim y: " << dimY << std::endl;
+//    std::cout << "Dim z: " << dimZ << std::endl;*/
+//
+//    vector<vector<vector<Voxel>>> tempGrid(dimX, vector<vector<Voxel>>(dimY, vector<Voxel>(dimZ)));
+//    
+//    // fill in 3D grid with voxels
+//    for (int x = 0; x < dimX; x++)
+//    {
+//        for (int y = 0; y < dimY; y++)
+//        {
+//            for (int z = 0; z < dimZ; z++)
+//            {
+//                tempGrid[x][y][z] = Voxel();
+//            }
+//        }
+//    }
+//
+//    grid3D = tempGrid;
+//}
 
 void createValidationGrid()
 {
     unsigned char* buffer = new unsigned char[xRealExtent*zRealExtent];
-    for (int x = globalBB.min.x * 2; x < globalBB.max.x * 2; x++)
+    for (int x = realMin.x; x < realMax.x; x++)
     {
-        for (int z = globalBB.min.z * 2; z < globalBB.max.z * 2; z++)
+        for (int z = realMin.z; z < realMax.z; z++)
         {
             vec3 tempLoc = vec3(x, validationCell.y, z);
-            if (inBB(tempLoc, realMin, realMax) == false)
+            if (inBB(tempLoc, wreckBB.min, wreckBB.max) == false)
             {
                 if (x % 15 == 0 && z % 15 == 0)
                 {
@@ -380,10 +407,10 @@ void createValidationGrid()
 
 void insertIntoSpatialDS(Anchor node)
 {
-    vec3 spatialIndex = worldToIndexCoords(node.pos);
-    vector<Anchor> curNodes = grid3D[spatialIndex.x][spatialIndex.y][spatialIndex.z].getPRMNodes();
+    const vec3 spatialIndex = worldToIndexCoords(node.pos);
+    vector<Anchor> curNodes = grid3D[spatialIndex].getPRMNodes();
     curNodes.push_back(node);
-    grid3D[spatialIndex.x][spatialIndex.y][spatialIndex.z].setPRMNodes(curNodes);
+    grid3D[spatialIndex].setPRMNodes(curNodes);
 }
 
 Anchor getNodeFromBinWithLeast()
@@ -392,29 +419,24 @@ Anchor getNodeFromBinWithLeast()
     int least = INT_MAX;
     int count = 0;
 
-    for (int i = 0; i < grid3D.size(); i++)
+    for (auto it = grid3D.begin(); it != grid3D.end(); it++)
     {
-        for (int j = 0; j < grid3D[i].size(); j++)
+        Voxel curBin = it->second.getPRMNodes();
+        int numNodes = curBin.getPRMNodes().size();
+
+        if (numNodes > 0)
         {
-            for (int k = 0; k < grid3D[i][j].size(); k++)
-            {
-                Voxel curBin = grid3D[i][j][k].getPRMNodes();
-                int numNodes = curBin.getPRMNodes().size();
+            count++;
+        }
 
-                if (numNodes > 0)
-                {
-                    count++;
-                }
-
-                if (numNodes < least && numNodes > 0)
-                {
-                    least = numNodes;
-                    smallestBin = curBin;
-                }
-            }
+        if (numNodes < least && numNodes > 0)
+        {
+            least = numNodes;
+            smallestBin = curBin;
         }
     }
-    float space = float(grid3D[0][0].size() * grid3D[0].size() * grid3D.size());
+
+    float space = float(dimSDSx * dimSDSy * dimSDSz);
     cout << "Percent of Space Occupied: " << float(count) / space << endl;
     int nodeIndex = rand() % smallestBin.getPRMNodes().size();
     return smallestBin.getPRMNodes().at(nodeIndex);
@@ -853,7 +875,7 @@ static void render()
 
     if (drawMainBB)
     {
-	     boundingBox.addTransforms(globalBBtrans, globalBBscale, 0, vec3(0, 0, 0));
+	     boundingBox.addTransforms(wreckBBtrans, wreckBBscale, 0, vec3(0, 0, 0));
 	     boundingBox.draw(M, P, V);
     }
    
@@ -993,12 +1015,12 @@ bool boxFrustumIntersectionTest(Frustum fru)
 {
     int out;
 
-    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].x > globalBB.max.x)?1:0); if( out==8 ) return false;
-    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].x < globalBB.min.x)?1:0); if( out==8 ) return false;
-    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].y > globalBB.max.y)?1:0); if( out==8 ) return false;
-    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].y < globalBB.min.y)?1:0); if( out==8 ) return false;
-    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].z > globalBB.max.z)?1:0); if( out==8 ) return false;
-    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].z < globalBB.min.z)?1:0); if( out==8 ) return false;
+    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].x > wreckBB.max.x)?1:0); if( out==8 ) return false;
+    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].x < wreckBB.min.x)?1:0); if( out==8 ) return false;
+    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].y > wreckBB.max.y)?1:0); if( out==8 ) return false;
+    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].y < wreckBB.min.y)?1:0); if( out==8 ) return false;
+    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].z > wreckBB.max.z)?1:0); if( out==8 ) return false;
+    out=0; for( int i=0; i<8; i++ ) out += ((fru.Points[i].z < wreckBB.min.z)?1:0); if( out==8 ) return false;
 
     return true;
 }
@@ -1012,7 +1034,7 @@ void checkForBBFrustumInterestion()
 	     bool hit = false;
 	     hit = boxFrustumIntersectionTest(anchorPts[i].camera.frustum);
 
-	     if (hit)
+	     if (hit && inBB(anchorPts[i].pos, wreckBB.min, wreckBB.max) == false)
         {
             //fprintf(stderr, "%d\n", i);
 		      anchorPts[i].updateAnchorType(hit);
@@ -1032,7 +1054,7 @@ void getAnchorCameraWeights()
     for (int i = 0; i < Nodes.size(); i++)
     {
 	    // cout << "Roadmap size: " << roadMap.size() << "\n";
-	     Nodes[i].getWeight(globalBB, hits, roadMap);
+	     Nodes[i].getWeight(wreckBB, hits, roadMap);
 	     weightTotal += Nodes[i].weight;
     } 
 
@@ -1121,7 +1143,7 @@ int generateNewNode(int numNodes)
     if (validate)
     {
         rootNode.pos = validationCell;
-        rootNode.camera.lookAt = (rootNode.pos - vec3(globalBB.max.x, globalBB.min.y, globalBB.max.z));
+        rootNode.camera.lookAt = (rootNode.pos - vec3(wreckBB.max.x, wreckBB.min.y, wreckBB.max.z));
         //This gives the rootnode a parent for going throught the list later. 
         rootNode.root = 1;
         rootNode.pathLength = 0;
@@ -1143,7 +1165,7 @@ int generateNewNode(int numNodes)
             newNode.pos = validationCell;
             vec3 newLookAt = validationCell - validationGrid[i].pos;
             newNode.camera.lookAt = newLookAt;
-            newNode.createAnchor(pitchIteration, &prevNode, &newNode, numNodes, i + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
+            newNode.createAnchor(pitchIteration, &prevNode, numNodes, i + 1, aspect, zNear, wreckBB, hits, roadMap, realMin, realMax, validate);
             roadMap.push_back(newNode);
             validationGrid[i].weight = newNode.weight;
             prevNode = newNode;
@@ -1157,7 +1179,7 @@ int generateNewNode(int numNodes)
             newNode.initializeProg();
             newNode.initializeTexture();
             newNode.addUniforms();
-            newNode.createAnchor(pitchIteration, &prevNode, &newNode, numNodes, i + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
+            newNode.createAnchor(pitchIteration, &prevNode, numNodes, i + 1, aspect, zNear, wreckBB, hits, roadMap, realMin, realMax, validate);
             newNode.root = 0;
             newNode.parentIndex = i;
             newNode.pathLength = i + 1;
@@ -1189,7 +1211,7 @@ int generateNewNode(int numNodes)
         bool high = false;
 
         ///* For each newNode generated, have every other one expand off of current nodes in the */
-        //if(iteration % 2 == 1)
+        //if(iteration % 2 == 0)
         //{
         //    curr = getNodeFromBinWithLeast();
         //}
@@ -1198,16 +1220,17 @@ int generateNewNode(int numNodes)
         //    //chose a random node in roadmap until nodes weight is > weightThreshold 
         //    do
         //    {
-        //        nodeIndex = rand() % Nodes.size();
-        //        curr = Nodes.at(nodeIndex);
-        //    } while (curr.weight < 0.8f);
+        //        nodeIndex = rand() % highestWeightNodes.size();
+        //        curr = highestWeightNodes.at(nodeIndex);
+        //        curr.ndex = roadMap.size() - 1;
+        //    } while (curr.weight < highLevelCutOff);
         //}
 
         curr = getNodeFromBinWithLeast();
         newNode.parentIndex = curr.ndex;
         //creates a random anchor point to expand off of
         //cout << "creating new node\n";
-        newNode.createAnchor(pitchIteration, &curr, &curr, numNodes, curr.pathLength + 1, aspect, zNear, globalBB, hits, roadMap, realMin, realMax, validate);
+        newNode.createAnchor(pitchIteration, &curr, numNodes, curr.pathLength + 1, aspect, zNear, wreckBB, hits, roadMap, realMin, realMax, validate);
        // cout << "high level: " << highLevelCutOff << "\n";
        // cout << "newNode Weight: " << newNode.weight << "\n";
 
@@ -1295,19 +1318,26 @@ int generateNewNode(int numNodes)
 
         } while(newNode.root != 1);
 
-        unsigned char* imgbuffer = new unsigned char[((xRealExtent*zRealExtent) / 450.0) * 3.0];
-        cout << "imgbuf size: " << ((xRealExtent*zRealExtent) / 450.0) * 3.0 << endl;
-        cout << "valid grid size: " << validationGrid.size() << endl;
-        size_t offset = 0;
-        for (const Anchor& anchor : validationGrid) {
-            imgbuffer[offset*3] = (unsigned char) (anchor.weight*255);
-            imgbuffer[offset * 3 + 1] = 0;
-            imgbuffer[offset * 3 + 2] = 0;
-            offset++;
-        }
+        if (validate)
+        {
+            float wreckZExtent = wreckBB.max.z - wreckBB.min.z;
+            float wreckXExtent = wreckBB.max.x - wreckBB.min.x;
+            float wreckArea = wreckZExtent * wreckXExtent;
+            float totalArea = (xRealExtent*zRealExtent - wreckArea) / 450.0f;
+            unsigned char* imgbuffer = new unsigned char[totalArea * 3.0f];
+            cout << "imgbuf size: " << totalArea * 3.0f << endl;
+            cout << "valid grid size: " << validationGrid.size() << endl;
+            size_t offset = 0;
+            for (const Anchor& anchor : validationGrid) {
+                imgbuffer[offset * 3] = (unsigned char)(anchor.weight * 255);
+                imgbuffer[offset * 3 + 1] = 0;
+                imgbuffer[offset * 3 + 2] = 0;
+                offset++;
+            }
 
-        Image image = Image(imgbuffer, xRealExtent / 15.0, zRealExtent / 15.0, 3, 1);
-        image.writeFile("slice.png");
+            Image image = Image(imgbuffer, xRealExtent / 15.0, zRealExtent / 15.0, 3, 1);
+            image.writeFile("slice.png");
+        }
 
         cout << "path size: " << path.size() << "\n";
 
@@ -1627,41 +1657,39 @@ int main(int argc, char **argv)
 
     //sceneObjects.push_back(testS); //testing one 
 
-    //make globalBB
+    //make wreckBB
     for (int i = 0; i != sceneObjects.size(); i++)
     {
-        globalBB.addBoundingBox(sceneObjects[i].bb);
+        wreckBB.addBoundingBox(sceneObjects[i].bb);
     }
 
-	 globalBB.setPlanes();
+	 wreckBB.setPlanes();
 
     //compute spatial bb
-    for (int i = 0; i != sceneObjects.size() ; i++)
-    {
-	     initSpatialDS(sceneObjects[i].bb);
-    }
+	 //initSpatialDS(wreckBB);
+    computeSpatialBB(wreckBB);
     
-    cout << "global min: " << globalBB.min.x << " " << globalBB.min.y << " " << globalBB.min.z << "\n"; 
-    cout << "global max: " << globalBB.max.x << " " << globalBB.max.y << " " << globalBB.max.z << "\n"; 
-    globalBBscale = vec3((globalBB.max.x - globalBB.min.x)/2.0,(globalBB.max.y - globalBB.min.y)/2.0,(globalBB.max.z - globalBB.min.z)/2.0);	
-    globalBBtrans = vec3(avg(globalBB.min.x,globalBB.max.x),avg(globalBB.min.y,globalBB.max.y),avg(globalBB.min.z,globalBB.max.z));
+    cout << "global min: " << wreckBB.min.x << " " << wreckBB.min.y << " " << wreckBB.min.z << "\n"; 
+    cout << "global max: " << wreckBB.max.x << " " << wreckBB.max.y << " " << wreckBB.max.z << "\n"; 
+    wreckBBscale = vec3((wreckBB.max.x - wreckBB.min.x)/2.0,(wreckBB.max.y - wreckBB.min.y)/2.0,(wreckBB.max.z - wreckBB.min.z)/2.0);	
+    wreckBBtrans = vec3(avg(wreckBB.min.x,wreckBB.max.x),avg(wreckBB.min.y,wreckBB.max.y),avg(wreckBB.min.z,wreckBB.max.z));
 
     createValidationGrid();
     
     //TEST CONTINUED 
     //testAnchor.camera = testCam; 
     //cout << "Roadmap size: " << roadMap.size() << "\n";
-    //testAnchor.getWeight(globalBB, hits, roadMap);
+    //testAnchor.getWeight(wreckBB, hits, roadMap);
    
-    //testAnchor.checkBBPlanes(Ray(vec3(-100,10,0),vec3(1,0,0)),globalBB,hits, roadMap);
+    //testAnchor.checkBBPlanes(Ray(vec3(-100,10,0),vec3(1,0,0)),wreckBB,hits, roadMap);
 
     if (pathName == "")
     {
 	     //USING LAWNMOWERPATH
 	     if (useLawnMowerPath)
 	     {
-		      vec3 minBB = globalBB.min * lawnMowerSizeMin;
-		      vec3 maxBB = globalBB.max * lawnMowerSizeMax;
+		      vec3 minBB = wreckBB.min * lawnMowerSizeMin;
+		      vec3 maxBB = wreckBB.max * lawnMowerSizeMax;
 		      float y = maxBB.y + 1;
 		      float xIncrement = (maxBB.x - minBB.x) / 6;
 
@@ -1669,13 +1697,13 @@ int main(int argc, char **argv)
 		      {
 		      for (float z = 0; z <= (maxBB.z - minBB.z); z += (maxBB.z - minBB.z) / 700)
 		      {
-				    Camera c = Camera(vec3(minBB.x + i * xIncrement, y, minBB.z + z), vec3(minBB.x + i * xIncrement + 0.1, 0, minBB.z + z + 0.1), 1); //vec3(globalBB.min.x+x,y+.5,globalBB.min.z+z),1);
+				    Camera c = Camera(vec3(minBB.x + i * xIncrement, y, minBB.z + z), vec3(minBB.x + i * xIncrement + 0.1, 0, minBB.z + z + 0.1), 1); //vec3(wreckBB.min.x+x,y+.5,wreckBB.min.z+z),1);
 				    lawnmower.push_back(c);
 		      }
 
 		      for (float z = maxBB.z; z >= minBB.z; z -= (maxBB.z - minBB.z) / 700)
 		      {
-				    Camera c = Camera(vec3(minBB.x + ((i + 1) * xIncrement), y, z), vec3(minBB.x + (i + 1) * xIncrement - 0.1, 0, z - 0.1), 1); //vec3(globalBB.min.x+x,y+.5,globalBB.min.z+z),1);
+				    Camera c = Camera(vec3(minBB.x + ((i + 1) * xIncrement), y, z), vec3(minBB.x + (i + 1) * xIncrement - 0.1, 0, z - 0.1), 1); //vec3(wreckBB.min.x+x,y+.5,wreckBB.min.z+z),1);
 				    lawnmower.push_back(c);
 		      }
 		      }
@@ -1716,9 +1744,9 @@ int main(int argc, char **argv)
 		      //randomly selects a high weight node to use as root
 		      if (highestWeightNodes.size() > 0)
 		      {
-		          rootNode = highestWeightNodes[highestWeightNodeIndex];
-                rootNode.pos = vec3(globalBB.min.x, globalBB.max.y, globalBB.min.z); //start at upper left corner of bounding box
-                rootNode.camera.lookAt = (rootNode.pos - vec3(globalBB.max.x, globalBB.min.y, globalBB.max.z));
+		          //rootNode = highestWeightNodes[highestWeightNodeIndex];
+                rootNode.pos = vec3(wreckBB.max.x, wreckBB.max.y, wreckBB.max.z); //start at upper left corner of bounding box
+                rootNode.camera.lookAt = (rootNode.pos - vec3(wreckBB.min.x, wreckBB.min.y, wreckBB.min.z));
 		          //This gives the rootnode a parent for going throught the list later. 
 		          rootNode.root = 1;
 		          rootNode.pathLength = 0;
