@@ -56,7 +56,7 @@ public:
     unsigned int hitting = 0;
     int newSideSeen = 0;
     vec3 velocity = vec3(1.0);
-    vec3 auvSpeed = vec3(3.0);
+    vec3 auvSpeed = vec3(15.0);
 
 
     void createLookAt(vec3 origin, vec3 *lookAt) {
@@ -226,9 +226,9 @@ public:
            theta += yawDelta;
 
            vec3 newVelocity;
-           newVelocity.x = cos(phi) * sin(M_PI + theta) * 5.0f;
-           newVelocity.y = sin(phi) * 5.0f;
-           newVelocity.z = cos(phi) * cos(M_PI - theta) * 5.0f;
+           newVelocity.x = cos(phi) * sin(M_PI + theta);
+           newVelocity.y = sin(phi);
+           newVelocity.z = cos(phi) * cos(M_PI - theta);
 
            newVelocity *= auvSpeed;
 

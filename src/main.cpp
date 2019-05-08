@@ -178,16 +178,18 @@ float dimSDSy = 0.0f;
 float dimSDSz = 0.0f;
 float voxelSize = 0.0f; // currently use max extent
 
+int sidesSeen = 0;
+
 struct KeyFuncs
 {
     size_t operator()(const vec3& k)const
     {
-        return std::hash<float>()(k.x) + std::hash<float>()(k.y) + std::hash<float>()(k.z);
+        return std::hash<float>()(floor(k.x)) ^ std::hash<float>()(floor(k.y)) + std::hash<float>()(floor(k.z));
     }
 
     bool operator()(const vec3& a, const vec3& b)const
     {
-        return a.x == b.x && a.y == b.y && a.z == b.z;
+        return floor(a.x) == floor(b.x) && floor(a.y) == floor(b.y) && floor(a.z) == floor(b.z);
     }
 };
 
@@ -429,7 +431,7 @@ Anchor getNodeFromBinWithLeast()
             count++;
         }
 
-        if (numNodes < least && numNodes > 0)
+        if (numNodes <= least && numNodes > 0)
         {
             least = numNodes;
             smallestBin = curBin;
@@ -1089,9 +1091,11 @@ float delta(float a, float b)
 
 void printHits(Anchor newNode)
 {
+    sidesSeen = 0;
     if ((newNode.hitting & 16) > 0)
     {
 	     cout << "P1: 1\n";
+        sidesSeen++;
     }
     else
     {
@@ -1101,6 +1105,7 @@ void printHits(Anchor newNode)
     if ((newNode.hitting & 8) > 0)
     {
 	     cout << "P2: 1\n";
+        sidesSeen++;
     }
     else
     {
@@ -1110,6 +1115,7 @@ void printHits(Anchor newNode)
     if ((newNode.hitting & 4) > 0) 
     {
 	     cout << "P3: 1\n";
+        sidesSeen++;
     }
     else 
     {
@@ -1118,6 +1124,7 @@ void printHits(Anchor newNode)
 
     if ((newNode.hitting & 2) > 0) 
     {
+        sidesSeen++;
 	     cout << "P4: 1\n";
     }
     else
@@ -1127,6 +1134,7 @@ void printHits(Anchor newNode)
 
     if ((newNode.hitting & 1) > 0) 
     {
+        sidesSeen++;
 	     cout << "P5: 1\n";
     }
     else 
@@ -1211,22 +1219,22 @@ int generateNewNode(int numNodes)
         bool high = false;
 
         ///* For each newNode generated, have every other one expand off of current nodes in the */
-        //if(iteration % 2 == 0)
-        //{
-        //    curr = getNodeFromBinWithLeast();
-        //}
-        //else
-        //{ 
-        //    //chose a random node in roadmap until nodes weight is > weightThreshold 
-        //    do
-        //    {
-        //        nodeIndex = rand() % highestWeightNodes.size();
-        //        curr = highestWeightNodes.at(nodeIndex);
-        //        curr.ndex = roadMap.size() - 1;
-        //    } while (curr.weight < highLevelCutOff);
-        //}
+        if(iteration % 2 == 0)
+        {
+            curr = getNodeFromBinWithLeast();
+        }
+        else
+        { 
+            //loop backwards over roadmap until nodes weight is > weightThreshold 
+            nodeIndex = roadMap.size();
+            do
+            {
+                nodeIndex--;
+                curr = roadMap.at(nodeIndex);
+            } while (curr.weight < highLevelCutOff);
+        }
 
-        curr = getNodeFromBinWithLeast();
+       // curr = getNodeFromBinWithLeast();
         newNode.parentIndex = curr.ndex;
         //creates a random anchor point to expand off of
         //cout << "creating new node\n";
@@ -1259,7 +1267,7 @@ int generateNewNode(int numNodes)
 
         iteration++;
         pitchIteration++;
-
+        
         //cout << "completed\n";
         cout << "pathLength: " << newNode.pathLength << "\n";   //WE HAVE A COMPLETE PATH
 
@@ -1276,7 +1284,7 @@ int generateNewNode(int numNodes)
         }
         else if (limitByViews)
         {
-            limiter = (newNode.hitting >= 31);
+            limiter = (newNode.hitting >= 31 || sidesSeen >= 5);
         }
     }
 
@@ -1360,8 +1368,9 @@ int generateNewNode(int numNodes)
             outfile << path.size() << std::endl;
             for (int i = 0; i < path.size(); i++)
             {
-                outfile << path[i].pos.x << " " << path[i].pos.y << " " << path[i].pos.z << " " 
-                        << path[i].camera.lookAt.x << " " << path[i].camera.lookAt.y  << " " << path[i].camera.lookAt.z << " "
+                outfile << i << " " << path[i].weight << " "
+                    << path[i].pos.x << " " << path[i].pos.y << " " << path[i].pos.z << " " 
+                    << path[i].camera.lookAt.x << " " << path[i].camera.lookAt.y  << " " << path[i].camera.lookAt.z << " "
 						<< path[i].camera.up.x << " " << path[i].camera.up.y << " " << path[i].camera.up.z << " "
 						<< path[i].camera.eye.x << " " << path[i].camera.eye.y << " " << path[i].camera.eye.z << " "
 						<< path[i].camera.rightV.x << " " << path[i].camera.rightV.y << " " << path[i].camera.rightV.z << " "
@@ -1448,7 +1457,8 @@ void parsePathFile()
 			newNode.root = 0;
 		}
 
-		infile >> newNode.pos.x >> newNode.pos.y >> newNode.pos.z
+		infile >> newNode.ndex >> newNode.weight
+         >> newNode.pos.x >> newNode.pos.y >> newNode.pos.z
 			>> newNode.camera.lookAt.x >> newNode.camera.lookAt.y >> newNode.camera.lookAt.z
 			>> newNode.camera.up.x >> newNode.camera.up.y >> newNode.camera.up.z
 			>> newNode.camera.eye.x >> newNode.camera.eye.y >> newNode.camera.eye.z
@@ -1751,6 +1761,7 @@ int main(int argc, char **argv)
 		          rootNode.root = 1;
 		          rootNode.pathLength = 0;
 		          rootNode.parentIndex = -1;
+                rootNode.weight = 1.0f;
 
                 if (!validate)
                 {
