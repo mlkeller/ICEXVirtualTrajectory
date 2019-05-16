@@ -30,6 +30,7 @@
 #include "TextureKole.hpp"
 #include "Framebuffer.hpp"
 #include "Image.hpp"
+#include "stb_image.h"
 //#include "PRMNode.h"
 //#include "BosPRMAlg.h"
 
@@ -81,8 +82,8 @@ vec3 Gmax = vec3(-1.1754E+38F);
 int sceneSize = 6;
 vec3 sceneSizeMax = vec3(sceneSize,sceneSize,sceneSize);
 vec3 sceneSizeMin = vec3(sceneSize,1,sceneSize);
-vec3 lawnMowerSizeMax = vec3(3,3,3);
-vec3 lawnMowerSizeMin = vec3(3,1,3);
+vec3 lawnMowerSizeMax = vec3(1,3,1);
+vec3 lawnMowerSizeMin = vec3(1,1,1);
 vec3 distanceFromWreck = vec3(1.2);
 
 //Hashmap
@@ -112,8 +113,10 @@ Obj testS;
 Obj wreck; 
 Obj wreck2;
 Obj ground;
-Obj sky;
+Obj skybox;
 Obj boundingBox;
+
+//unsigned int cubeMapTexture;
 
 FrustumObj frustumObj, frustumObjTest; 
 Anchor anchor;
@@ -657,12 +660,41 @@ static void resize_callback(GLFWwindow *window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-// define the ground plane
 static void initGeom()
 {
     frustumObj.setUp(testCam.frustum);
     frustumObjTest.setUp(testCam.frustum);
 }
+
+//
+//unsigned int createSky(string dir, vector<string> faces) {
+//    unsigned int textureID;
+//    glGenTextures(1, &textureID);
+//    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+//
+//    int width, height, nrChannels;
+//    stbi_set_flip_vertically_on_load(false);
+//    for (GLuint i = 0; i < faces.size(); i++) {
+//        unsigned char *data =
+//            stbi_load((dir + faces[i]).c_str(), &width, &height, &nrChannels, 0);
+//        if (data) {
+//            glTexImage2D(
+//                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+//                0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+//        }
+//        else {
+//            std::cout << "failed to load: " << (dir + faces[i]).c_str() << std::endl;
+//        }
+//    }
+//    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+//
+//    cout << " creating cube map any errors : " << glGetError() << endl;
+//    return textureID;
+//}
 
 static void init()
 {
@@ -670,7 +702,7 @@ static void init()
     glfwGetFramebufferSize(window, &width, &height);
 
     // Set background color.
-    glClearColor(0.5f, 0.5f, 1.0f, 1.0f);
+    glClearColor(0.05f, 0.3f, 0.6f, 1.0f);
 
     // Enable z-buffer test.
     glEnable(GL_DEPTH_TEST);
@@ -692,6 +724,24 @@ static void init()
     wreck.createBB();
     wreck.initializeShape();
 
+    ground = Obj(RESOURCE_DIR, "cube.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "amy2.jpg", 1, 1, 0);
+    ground.addTransforms(vec3(0, -5, 0), vec3(800, 1, 800), 0, vec3(0, 0, 0));
+    ground.initializeShape();
+
+    /*vector<std::string> faces{
+       "purplenebula_up.tga",
+       "purplenebula_ft.tga",
+       "purplenebula_ft.tga",
+       "purplenebula_lf.tga",
+       "purplenebula_lf.tga",
+       "purplenebula_lf.tga"
+    };
+    cubeMapTexture = createSky(RESOURCE_DIR + "/ame_nebula/", faces);
+
+    skybox = Obj(RESOURCE_DIR, "cube.obj", "tex_vert.glsl", "tex_skybox_frag.glsl", "blue.jpg", 1, cubeMapTexture, 0);
+    skybox.addTransforms(vec3(0, 5, 0), vec3(500, 500, 500), 0, vec3(0, 0, 0));
+    skybox.initializeShape();*/
+
     boundingBox = Obj(RESOURCE_DIR, "cube.obj", "tex_vert.glsl", "tex_bb_frag.glsl", "pink.jpg", 3, 0, 0);
     boundingBox.initializeShape();
 
@@ -702,6 +752,8 @@ static void init()
     S.initializeProg();
     testS.initializeProg();
     wreck.initializeProg();
+    ground.initializeProg();
+    //skybox.initializeProg();
     boundingBox.initializeProg();
     anchor.initializeProg();
     frustumObj.initializeProg();
@@ -711,6 +763,8 @@ static void init()
     S.initializeTexture();
     testS.initializeTexture();
     wreck.initializeTexture();
+    ground.initializeTexture();
+   // skybox.initializeTexture();
     boundingBox.initializeTexture();
     anchor.initializeTexture();
     frustumObj.initializeTexture();
@@ -720,6 +774,8 @@ static void init()
     S.addUniforms();
     testS.addUniforms();
     wreck.addUniforms();
+    ground.addUniforms();
+   // skybox.addUniforms();
     boundingBox.addUniforms();
     anchor.addUniforms();
     frustumObj.addUniforms();
@@ -744,6 +800,7 @@ void saveImage(int width, int height, int nbr)
     cv::Mat imageMat(height, width, CV_8UC4, data);
     cv::flip(imageMat, imageMat, 0);
     cv::imwrite(buffer,imageMat);
+    delete[] data;
 }
 
 static void render()
@@ -809,7 +866,7 @@ static void render()
             {
 	             V = lawnmower[lawnmowerIndex].cameraView;
 	             currentCam = lawnmower[lawnmowerIndex];
-	             maxCamIndex = lawnmower.size();
+	             maxCamIndex = lawnmower.size() * 3.0f;
 	             lawnmowerIndex++;
 	         }
             else if (useCircularPath)
@@ -820,17 +877,30 @@ static void render()
 	         }
             else if (useNodePath)
             {
-	             V = path[PATHNUM].camera.cameraView;
-	             currentCam = path[PATHNUM].camera;
-	             maxCamIndex = path.size() - 1;
+                maxCamIndex = path.size() - 1;
+                const static size_t node_interp_steps = 10; 
+                static size_t node_interp_counter = 0; 
+                size_t current_node_idx = PATHNUM;
+                size_t next_node_idx = (PATHNUM + 1) % maxCamIndex;
+                node_interp_counter = (node_interp_counter + 1) % node_interp_steps;
+	             mat4 V1 = path[current_node_idx].camera.cameraView;
+                mat4 V2 = path[next_node_idx].camera.cameraView;
+                vec3 cam_pos1 = vec3(vec4(0.0, 0.0, 0.0, 1.0) * transpose(V1));
+                vec3 cam_pos2 = vec3(vec4(0.0, 0.0, 0.0, 1.0) * transpose(V2));
+                glm::quat cam_orient1 = glm::quat(glm::translate(V1, -cam_pos1));
+                glm::quat cam_orient2 = glm::quat(glm::translate(V2, -cam_pos2)); 
+                float interp_t = (double)node_interp_counter / ((double)node_interp_steps);
+                vec3 final_cam_pos = glm::mix(cam_pos1, cam_pos2, interp_t);
+                glm::quat final_cam_orient = normalize(glm::slerp(cam_orient1, cam_orient2, interp_t));
+                V = (glm::mat4_cast(final_cam_orient));
+                V[3] = vec4(final_cam_pos, 1.0f);
+                //V = inverse(V);
+                //V = glm::lookAt(final_cam_pos, vec3(0.0), vec3(0.0, 1.0, 0.0));
+                currentCam = path[PATHNUM].camera;
 
-				if (PATHNUM < path.size() - 1)
+				if (PATHNUM < path.size() - 1 && node_interp_counter == node_interp_steps-1)
 				{
-					PATHNUM++;
-				}
-				else
-				{
-					PATHNUM = 0;
+					PATHNUM = (PATHNUM + 1) % (path.size()-1);
 				}
 	         }
 
@@ -865,6 +935,9 @@ static void render()
         S.draw(M, P, V);
     }
     */
+
+    ground.draw(M, P, V);
+    //skybox.draw(M, P, V);
   	 
     if (drawBoundingBoxes)
     {
@@ -934,7 +1007,7 @@ static void render()
         printLoc = false;
     }
 	
-    if (camIndex % 3 == 0 && camIndex > 0)
+    if (camIndex % 1 == 0 && camIndex > 0)
     {
    	  saveImage(width, height, imageNum);
    	  imageNum++;
@@ -1484,7 +1557,8 @@ void parsePathFile()
 		vec3 u1, v1, w1, u2, v2, w2;
 		float tx = interPercent * (pathLength - 1);
 		float idx = int(tx);
-		float t = tx - floor(tx);
+		// float t = tx - floor(tx);
+      float t = glm::fract(tx);
 
 		Anchor A = getNodeFromPath(tempPath, idx - 1);
 		Anchor B = getNodeFromPath(tempPath, idx);
@@ -1514,19 +1588,27 @@ void parsePathFile()
 
 		fquat q1 = quat_cast(cameraUVW1);
 		fquat q2 = quat_cast(cameraUVW2);
-		fquat slerp = mix(q1, q2, t);
-		mat4 newCameraUVW = mat4_cast(slerp);
+		fquat slerped_qs = glm::slerp(q1, q2, t);
+		mat4 newCameraUVW = mat4_cast(slerped_qs);
 
 		mat4 newEye = mat4(1.0f);
 		newEye[0][3] = -1.0f * tempPath[idx].camera.eye.x;
 		newEye[1][3] = -1.0f * tempPath[idx].camera.eye.y;
 		newEye[2][3] = -1.0f * tempPath[idx].camera.eye.z;
+
+      mat4 newView = inverse(newCameraUVW);
 		
-		vec4 newView = newCameraUVW * newEye * newPos;
+	   //mat4 newView = inverse(newCameraUVW);
+
+      newView = inverse(newView);
+      newView[3] = newPos;
+      newView = inverse(newView);
+
+      cerr << glm::to_string(newPos) << endl;
 	
 		Anchor newNode = tempPath[idx];
 		newNode.pos = newPos;
-		newNode.view = newView;
+		newNode.camera.cameraView = newView;
 		path.push_back(newNode);
 	}
 }
