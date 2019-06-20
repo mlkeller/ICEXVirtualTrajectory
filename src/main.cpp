@@ -77,6 +77,7 @@ int imageNum = 0;
 float sampleW, sampleH, sampleD, sampleDelta;
 vector<Anchor> grid; 
 vector<Anchor> anchorPts; 
+vector<vec3> allPositions;
 vec3 Gmin = vec3(1.1754E+38F);
 vec3 Gmax = vec3(-1.1754E+38F);
 int sceneSize = 6;
@@ -382,14 +383,15 @@ vec3 indexToWorldCoords(vec3 indexCoords)
 void createValidationGrid()
 {
     unsigned char* buffer = new unsigned char[xRealExtent*zRealExtent];
-    for (int x = realMin.x; x < realMax.x; x++)
+    for (int x = floor(realMin.x); x < floor(realMax.x); ++x)
     {
-        for (int z = realMin.z; z < realMax.z; z++)
+        for (int z = floor(realMin.z); z < floor(realMax.z); ++z)
         {
             vec3 tempLoc = vec3(x, validationCell.y, z);
-            if (inBB(tempLoc, wreckBB.min, wreckBB.max) == false)
+
+            if (x % 15 == 0 && z % 15 == 0)
             {
-                if (x % 15 == 0 && z % 15 == 0)
+                if (inBB(tempLoc, wreckBB.min, wreckBB.max) == false)
                 {
                     //  vec3 pos = indexToWorldCoords(vec3(tempLoc));
                     anchor.addPosition(tempLoc);
@@ -397,15 +399,15 @@ void createValidationGrid()
                     anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(1, 1, 1));
                     validationGrid.push_back(anchor);
                 }
+                else
+                {
+                    anchor.weight = 0.0f;
+                    anchor.addPosition(tempLoc);
+                    //  anchor.pos = pos;
+                    anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(1, 1, 1));
+                    validationGrid.push_back(anchor);
+                }
             }
-            //else
-            //{
-            //    anchor.weight = -1.0f;
-            //    anchor.addPosition(tempLoc);
-            //    //  anchor.pos = pos;
-            //    anchor.addTransforms(tempLoc, vec3(1, 1, 1), 0, vec3(1, 1, 1));
-            //    validationGrid.push_back(anchor);
-            //}
         }
     }
 }
@@ -719,13 +721,14 @@ static void init()
     anchor = Anchor(RESOURCE_DIR, "sphere.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "white.png", 1, 0, 0);
     anchor.initializeShape();
 
+    //wreck = Obj(RESOURCE_DIR, "beaufighter.obj", "tex_vert.glsl", "tex_wreck_frag.glsl", "beaufighter.jpg", 2, 0, 1);
     wreck = Obj(RESOURCE_DIR, "OldBoat.obj", "tex_vert.glsl", "tex_wreck_frag.glsl", "boattex.jpg", 2, 0, 1);
-    wreck.addTransforms(vec3(0, 0, 0), vec3(3, 3, 3), 0, vec3(0, 0, 0));
+    wreck.addTransforms(vec3(0, 0, 0), vec3(3, 3, 3), 90, vec3(0, 1, 0));
     wreck.createBB();
     wreck.initializeShape();
 
-    ground = Obj(RESOURCE_DIR, "cube.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "amy2.jpg", 1, 1, 0);
-    ground.addTransforms(vec3(0, -5, 0), vec3(800, 1, 800), 0, vec3(0, 0, 0));
+    ground = Obj(RESOURCE_DIR, "plane.obj", "tex_vert.glsl", "tex_anchor_frag.glsl", "amy1.png", 1, 1, 0);
+    ground.addTransforms(vec3(0, -5, 0), vec3(1200, 1, 1200), 0, vec3(0, 0, 0));
     ground.initializeShape();
 
     /*vector<std::string> faces{
@@ -1243,8 +1246,8 @@ int generateNewNode(int numNodes)
             newNode.parentIndex = i;
             newNode.pathLength = i + 1;
             newNode.ndex = i + 1;
-            newNode.pos = validationCell;
-            vec3 newLookAt = validationCell - validationGrid[i].pos;
+            newNode.pos = validationGrid[i].pos;
+            vec3 newLookAt = -1* validationGrid[i].pos;
             newNode.camera.lookAt = newLookAt;
             newNode.createAnchor(pitchIteration, &prevNode, numNodes, i + 1, aspect, zNear, wreckBB, hits, roadMap, realMin, realMax, validate);
             roadMap.push_back(newNode);
@@ -1290,6 +1293,8 @@ int generateNewNode(int numNodes)
         int nodeIndex = -1;
         int currIdx;
         bool high = false;
+        float curTime = glfwGetTime();
+        float limitTime = 0;
 
         ///* For each newNode generated, have every other one expand off of current nodes in the */
         if(iteration % 2 == 0)
@@ -1353,11 +1358,19 @@ int generateNewNode(int numNodes)
         else if (limitByTime)
         {
 
-            limiter = (glfwGetTime() >= 400);
+            limiter = (curTime >= 400);
         }
         else if (limitByViews)
         {
-            limiter = (newNode.hitting >= 31 || sidesSeen >= 5);
+            //bs to add extra time after hitting >= 31, should do more raytracing instead
+            bool hitSides = (newNode.hitting >= 31 || sidesSeen >= 5);
+            if (hitSides)
+            {
+                limitTime = glfwGetTime();
+                hitSides = false;
+            }
+
+            limiter = curTime > limitTime + 15;
         }
     }
 
@@ -1379,7 +1392,9 @@ int generateNewNode(int numNodes)
         }
  
 	     // Pull actual path off roadmap from current node up to root node
-	     double avgPathWeight = 0;
+	     float avgPathWeight = 0.0f;
+        float minPathWeight = 1.0f;
+        float maxPathWeight = 0.0f;
 
 		  cout << "path size before: " << path.size() << "\n";
         newNode = roadMap.back();
@@ -1390,6 +1405,17 @@ int generateNewNode(int numNodes)
             path.push_back(newNode);
             //cout<<"path size: " << path.size() << "\n";
             avgPathWeight += newNode.weight;
+
+            if (newNode.weight < minPathWeight)
+            {
+                minPathWeight = newNode.weight;
+            }
+
+            if (newNode.weight > maxPathWeight)
+            {
+                maxPathWeight = newNode.weight;
+            }
+
             //cout << "curr index: " << newNode.ndex << "\n";
             //cout << "parent index: " << newNode.parentIndex << "\n";
             newNode = roadMap[newNode.parentIndex];
@@ -1459,8 +1485,10 @@ int generateNewNode(int numNodes)
             }
 
             // Write road map size, average node weight in path, and time to generate path to file
-            outfile << roadMap.size() << std::endl;
-            outfile << avgPathWeight << std::endl;
+            outfile << "roadmap size: " << roadMap.size() << std::endl;
+            outfile << "avg path weight: " << avgPathWeight << std::endl;
+            outfile << "min path weight: " << minPathWeight << std::endl;
+            outfile << "max path weight: " << maxPathWeight << std::endl;
         }
         else
         {
@@ -1507,6 +1535,9 @@ void parsePathFile()
 	std::ifstream infile(RESOURCE_PATH + pathName);
 	vector<Anchor> tempPath;
 	int pathLength = 0;
+   float avgWeight = 0.0f;
+   float minWeight = 1.0f;
+   float maxWeight = 0.0f;
 	infile >> pathLength;
 
 	for (int i = 0; i < pathLength; ++i)
@@ -1547,6 +1578,19 @@ void parsePathFile()
 
       newNode.addTransforms(newNode.pos, vec3(1, 1, 1), 0, vec3(0, 0, 0));
 		tempPath.push_back(newNode);
+      allPositions.push_back(newNode.pos);
+
+      avgWeight += newNode.weight;
+
+      if (newNode.weight < minWeight)
+      {
+          minWeight = newNode.weight;
+      }
+
+      if (newNode.weight > maxWeight)
+      {
+          maxWeight = newNode.weight;
+      }
 	}
 
 	// make a new path with hermite interpolation
@@ -1603,14 +1647,28 @@ void parsePathFile()
       newView = inverse(newView);
       newView[3] = newPos;
       newView = inverse(newView);
-
-      cerr << glm::to_string(newPos) << endl;
 	
 		Anchor newNode = tempPath[idx];
 		newNode.pos = newPos;
 		newNode.camera.cameraView = newView;
 		path.push_back(newNode);
 	}
+   float distance = 0.0f;
+   for (int i = 0; i < allPositions.size() - 1; i++)
+   {
+       float x = (allPositions[i + 1].x - allPositions[i].x) * (allPositions[i + 1].x - allPositions[i].x);
+       float y = (allPositions[i + 1].y - allPositions[i].y) * (allPositions[i + 1].y - allPositions[i].y);
+       float z = (allPositions[i + 1].z - allPositions[i].z) * (allPositions[i + 1].z - allPositions[i].z);
+       distance += sqrt(x + y + z);
+   }
+
+   avgWeight = avgWeight / float(pathLength);
+
+   cout << "pathlength: " << pathLength << endl;
+   cout << "avg weight: " << avgWeight << endl;
+   cout << "min weight: " << minWeight << endl;
+   cout << "max weight: " << maxWeight << endl;
+   cout << "distance: " << distance << endl;
 }
 
 int main(int argc, char **argv)
